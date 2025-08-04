@@ -1,7 +1,7 @@
 ## Integrantes 
-Santiago Garzón
-Brayan Guerrero
-David Martinez
+* Santiago Garzón
+* Brayan Guerrero
+* David Martinez
 
 ## Proyecto de automatizacion de tareas Escuela de Ciencias de la Computacion e Inteligencia Artificial
 Sergio Arboleda
