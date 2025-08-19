@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from typing import List
 import os
@@ -8,6 +8,7 @@ from bson import ObjectId
 # Importar servicios
 from services.config_service import config_service
 from services.mongodb_service import MongoDBService
+from services.password_service import password_service
 
 # Importar schemas de usuario
 from users.schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
@@ -40,7 +41,135 @@ async def health_check():
         content="API de Usuarios"
     )
 
-@app.post("/user/create", response_model=UsuarioResponse, status_code=201)
+# Endpoint de debug para MongoDB
+@app.get("/debug/mongodb")
+async def debug_mongodb(db: MongoDBService = Depends(get_mongodb)):
+    """
+    Endpoint de debug para verificar la conexión a MongoDB y mostrar información útil
+    """
+    try:
+        # Verificar conexión
+        is_connected = db.is_connected()
+        
+        if not is_connected:
+            return {
+                "status": "error",
+                "message": "No hay conexión a MongoDB",
+                "connection": False
+            }
+        
+        # Contar usuarios
+        total_usuarios = db.count_documents("usuarios")
+        
+        # Obtener algunos usuarios de ejemplo
+        usuarios_ejemplo = db.find_all("usuarios", limit=3)
+        
+        # Formatear usuarios para mostrar
+        usuarios_formateados = []
+        for usuario in usuarios_ejemplo:
+            usuarios_formateados.append({
+                "id": str(usuario["_id"]),
+                "nombre": usuario.get("nombre", "N/A"),
+                "correo": usuario.get("correo", "N/A"),
+                "tipo": usuario.get("tipo", "N/A"),
+                "fecha_creacion": usuario.get("fecha_creacion", "N/A")
+            })
+        
+        return {
+            "status": "success",
+            "message": "Conexión a MongoDB exitosa",
+            "connection": True,
+            "database": db.database_name,
+            "total_usuarios": total_usuarios,
+            "usuarios_ejemplo": usuarios_formateados,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error en debug: {str(e)}",
+            "connection": False,
+            "timestamp": datetime.now().isoformat()
+        }
+
+# Endpoint de debug para probar búsqueda por ID
+@app.get("/debug/user/{user_id}")
+async def debug_user_by_id(user_id: str, db: MongoDBService = Depends(get_mongodb)):
+    """
+    Endpoint de debug para probar la búsqueda de un usuario por ID
+    """
+    try:
+        print(f"🔍 DEBUG: Buscando usuario con ID: {user_id}")
+        
+        # Validar formato del ID
+        is_valid = db.is_valid_object_id(user_id)
+        print(f"🔍 DEBUG: ID válido: {is_valid}")
+        
+        if not is_valid:
+            return {
+                "status": "error",
+                "message": f"ID inválido: '{user_id}' no es un ObjectId válido",
+                "id_provided": user_id,
+                "is_valid_object_id": False,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Verificar conexión
+        if not db.is_connected():
+            return {
+                "status": "error",
+                "message": "No hay conexión a MongoDB",
+                "id_provided": user_id,
+                "is_valid_object_id": True,
+                "connection": False,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Buscar usuario
+        usuario = db.find_by_id_with_validation("usuarios", user_id)
+        
+        if not usuario:
+            return {
+                "status": "not_found",
+                "message": f"Usuario no encontrado con ID: {user_id}",
+                "id_provided": user_id,
+                "is_valid_object_id": True,
+                "connection": True,
+                "usuario_encontrado": False,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        return {
+            "status": "success",
+            "message": f"Usuario encontrado con ID: {user_id}",
+            "id_provided": user_id,
+            "is_valid_object_id": True,
+            "connection": True,
+            "usuario_encontrado": True,
+            "usuario": {
+                "id": str(usuario["_id"]),
+                "nombre": usuario.get("nombre", "N/A"),
+                "correo": usuario.get("correo", "N/A"),
+                "tipo": usuario.get("tipo", "N/A"),
+                "fecha_creacion": usuario.get("fecha_creacion", "N/A")
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ DEBUG: Error en debug_user_by_id: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Error interno: {str(e)}",
+            "id_provided": user_id,
+            "timestamp": datetime.now().isoformat()
+        }
+
+# ===== RUTAS ESPECÍFICAS (DEBEN IR ANTES QUE LAS RUTAS CON PARÁMETROS) =====
+
+# CREATE - Crear usuario (ruta específica)
+@app.post("/users/create", response_model=UsuarioResponse, status_code=201)
 async def create_user(
     usuario: UsuarioCreate, 
     db: MongoDBService = Depends(get_mongodb),
@@ -62,11 +191,19 @@ async def create_user(
                 detail="Ya existe un usuario con este correo electrónico"
             )
         
+        # Verificar que la contraseña sea segura
+        es_fuerte, mensaje_error = password_service.is_password_strong(usuario.contraseña)
+        if not es_fuerte:
+            raise HTTPException(
+                status_code=400,
+                detail=f"La contraseña no cumple con los requisitos de seguridad: {mensaje_error}"
+            )
+        
         # Preparar documento para insertar
         usuario_doc = {
             "nombre": usuario.nombre,
             "correo": usuario.correo,
-            "contraseña": usuario.contraseña,  # En producción, hashear la contraseña
+            "contraseña": password_service.hash_password(usuario.contraseña),  # Encriptar contraseña
             "tipo": usuario.tipo,
             "fecha_creacion": datetime.now().isoformat()
         }
@@ -75,8 +212,16 @@ async def create_user(
         collection = db.get_collection("usuarios")
         result = collection.insert_one(usuario_doc)
         
-        # Obtener el usuario creado
-        usuario_creado = db.find_by_id("usuarios", str(result.inserted_id))
+        print(f"✅ Usuario creado con ID: {result.inserted_id}")
+        
+        # Obtener el usuario creado usando el método mejorado
+        usuario_creado = db.find_by_id_with_validation("usuarios", str(result.inserted_id))
+        
+        if not usuario_creado:
+            raise HTTPException(
+                status_code=500, 
+                detail="Usuario creado pero no se pudo recuperar de la base de datos"
+            )
         
         return UsuarioResponse(
             id=str(result.inserted_id),
@@ -132,40 +277,7 @@ async def get_all_users(
         print(f"ERROR en get_all_users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
-# READ - Obtener usuario por ID
-@app.get("/user/{user_id}", response_model=UsuarioResponse)
-async def get_user_by_id(
-    user_id: str, 
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Obtener un usuario específico por su ID
-    """
-    try:
-        # Validar formato del ID
-        if not ObjectId.is_valid(user_id):
-            raise HTTPException(status_code=400, detail="ID de usuario inválido")
-        
-        # Buscar usuario
-        usuario = db.find_by_id("usuarios", user_id)
-        if not usuario:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-        return UsuarioResponse(
-            id=str(usuario["_id"]),
-            nombre=usuario["nombre"],
-            correo=usuario["correo"],
-            tipo=usuario["tipo"],
-            fecha_creacion=usuario.get("fecha_creacion")
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-# READ - Buscar usuario por correo
+# READ - Buscar usuario por correo (ruta específica)
 @app.get("/user/search/email/{email}")
 async def search_user_by_email(
     email: str, 
@@ -193,122 +305,7 @@ async def search_user_by_email(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
-# UPDATE - Actualizar usuario
-@app.put("/user/{user_id}", response_model=UsuarioResponse)
-async def update_user(
-    user_id: str, 
-    usuario_update: UsuarioUpdate, 
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Actualizar un usuario existente
-    """
-    
-    if current_user["tipo"] != "admin":
-        raise HTTPException(status_code=403, detail="No tienes permisos para editar usuarios")
-    
-    try:
-        # Validar formato del ID
-        if not ObjectId.is_valid(user_id):
-            raise HTTPException(status_code=400, detail="ID de usuario inválido")
-        
-        # Verificar que el usuario existe
-        usuario_existente = db.find_by_id("usuarios", user_id)
-        if not usuario_existente:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-        # Preparar campos a actualizar
-        update_fields = {}
-        if usuario_update.nombre is not None:
-            update_fields["nombre"] = usuario_update.nombre
-        if usuario_update.correo is not None:
-            # Verificar que el nuevo correo no esté en uso por otro usuario
-            if usuario_update.correo != usuario_existente["correo"]:
-                usuario_con_correo = db.find_one("usuarios", {"correo": usuario_update.correo})
-                if usuario_con_correo:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="Ya existe un usuario con este correo electrónico"
-                    )
-            update_fields["correo"] = usuario_update.correo
-        if usuario_update.contraseña is not None:
-            update_fields["contraseña"] = usuario_update.contraseña
-        if usuario_update.tipo is not None:
-            update_fields["tipo"] = usuario_update.tipo
-        
-        # Agregar fecha de actualización
-        update_fields["fecha_actualizacion"] = datetime.now().isoformat()
-        
-        # Actualizar en MongoDB
-        collection = db.get_collection("usuarios")
-        result = collection.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": update_fields}
-        )
-        
-        if result.modified_count == 0:
-            raise HTTPException(status_code=400, detail="No se pudo actualizar el usuario")
-        
-        # Obtener usuario actualizado
-        usuario_actualizado = db.find_by_id("usuarios", user_id)
-        
-        return UsuarioResponse(
-            id=str(usuario_actualizado["_id"]),
-            nombre=usuario_actualizado["nombre"],
-            correo=usuario_actualizado["correo"],
-            tipo=usuario_actualizado["tipo"],
-            fecha_creacion=usuario_actualizado.get("fecha_creacion")
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-# DELETE - Eliminar usuario
-@app.delete("/user/{user_id}")
-async def delete_user(
-    user_id: str, 
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Eliminar un usuario por su ID
-    """
-    
-    if current_user["tipo"] != "admin":
-        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
-    
-    try:
-        # Validar formato del ID
-        if not ObjectId.is_valid(user_id):
-            raise HTTPException(status_code=400, detail="ID de usuario inválido")
-        
-        # Verificar que el usuario existe
-        usuario_existente = db.find_by_id("usuarios", user_id)
-        if not usuario_existente:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-        # Eliminar usuario
-        collection = db.get_collection("usuarios")
-        result = collection.delete_one({"_id": ObjectId(user_id)})
-        
-        if result.deleted_count == 0:
-            raise HTTPException(status_code=400, detail="No se pudo eliminar el usuario")
-        
-        return {
-            "message": "Usuario eliminado exitosamente",
-            "id": user_id,
-            "nombre": usuario_existente["nombre"]
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
-
-# DELETE - Eliminar todos los usuarios (ADMIN ONLY)
+# DELETE - Eliminar todos los usuarios (ADMIN ONLY) (ruta específica)
 @app.delete("/user/delete/all")
 async def delete_all_users(
     db: MongoDBService = Depends(get_mongodb),
@@ -338,6 +335,192 @@ async def delete_all_users(
         }
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+# ===== RUTAS CON PARÁMETROS (DEBEN IR DESPUÉS DE LAS RUTAS ESPECÍFICAS) =====
+
+# READ - Obtener usuario por ID
+@app.get("/user/{user_id}", response_model=UsuarioResponse)
+async def get_user_by_id(
+    user_id: str, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Obtener un usuario específico por su ID
+    """
+    try:
+        # Validar formato del ID
+        if not db.is_valid_object_id(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail=f"ID inválido: '{user_id}' no es un ObjectId válido"
+            )
+        
+        print(f"🔍 Buscando usuario con ID: {user_id}")
+        
+        # Buscar usuario usando el método mejorado
+        usuario = db.find_by_id_with_validation("usuarios", user_id)
+        if not usuario:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        print(f"✅ Usuario encontrado: {usuario.get('nombre', 'N/A')}")
+        
+        return UsuarioResponse(
+            id=str(usuario["_id"]),
+            nombre=usuario["nombre"],
+            correo=usuario["correo"],
+            tipo=usuario["tipo"],
+            fecha_creacion=usuario.get("fecha_creacion")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error en get_user_by_id: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+# UPDATE - Actualizar usuario
+@app.put("/user/{user_id}", response_model=UsuarioResponse)
+async def update_user(
+    user_id: str, 
+    usuario_update: UsuarioUpdate, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Actualizar un usuario existente
+    """
+    
+    if current_user["tipo"] != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para editar usuarios")
+    
+    try:
+        # Validar formato del ID
+        if not db.is_valid_object_id(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail=f"ID inválido: '{user_id}' no es un ObjectId válido"
+            )
+        
+        print(f"🔍 Verificando existencia del usuario con ID: {user_id}")
+        
+        # Verificar que el usuario existe usando el método mejorado
+        usuario_existente = db.find_by_id_with_validation("usuarios", user_id)
+        if not usuario_existente:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        print(f"✅ Usuario encontrado para actualizar: {usuario_existente.get('nombre', 'N/A')}")
+        
+        # Preparar campos a actualizar
+        update_fields = {}
+        if usuario_update.nombre is not None:
+            update_fields["nombre"] = usuario_update.nombre
+        if usuario_update.correo is not None:
+            # Verificar que el nuevo correo no esté en uso por otro usuario
+            if usuario_update.correo != usuario_existente["correo"]:
+                usuario_con_correo = db.find_one("usuarios", {"correo": usuario_update.correo})
+                if usuario_con_correo:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Ya existe un usuario con este correo electrónico"
+                    )
+            update_fields["correo"] = usuario_update.correo
+        if usuario_update.contraseña is not None:
+            # Verificar que la nueva contraseña sea segura
+            es_fuerte, mensaje_error = password_service.is_password_strong(usuario_update.contraseña)
+            if not es_fuerte:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"La nueva contraseña no cumple con los requisitos de seguridad: {mensaje_error}"
+                )
+            # Encriptar la nueva contraseña
+            update_fields["contraseña"] = password_service.hash_password(usuario_update.contraseña)
+        if usuario_update.tipo is not None:
+            update_fields["tipo"] = usuario_update.tipo
+        
+        # Agregar fecha de actualización
+        update_fields["fecha_actualizacion"] = datetime.now().isoformat()
+        
+        # Actualizar en MongoDB
+        collection = db.get_collection("usuarios")
+        result = collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_fields}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="No se pudo actualizar el usuario")
+        
+        print(f"✅ Usuario actualizado exitosamente: {user_id}")
+        
+        # Obtener usuario actualizado
+        usuario_actualizado = db.find_by_id_with_validation("usuarios", user_id)
+        
+        return UsuarioResponse(
+            id=str(usuario_actualizado["_id"]),
+            nombre=usuario_actualizado["nombre"],
+            correo=usuario_actualizado["correo"],
+            tipo=usuario_actualizado["tipo"],
+            fecha_creacion=usuario_actualizado.get("fecha_creacion")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error en update_user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+# DELETE - Eliminar usuario
+@app.delete("/user/{user_id}")
+async def delete_user(
+    user_id: str, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Eliminar un usuario por su ID
+    """
+    
+    if current_user["tipo"] != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
+    
+    try:
+        # Validar formato del ID
+        if not db.is_valid_object_id(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail=f"ID inválido: '{user_id}' no es un ObjectId válido"
+            )
+        
+        print(f"🔍 Verificando existencia del usuario a eliminar con ID: {user_id}")
+        
+        # Verificar que el usuario existe usando el método mejorado
+        usuario_existente = db.find_by_id_with_validation("usuarios", user_id)
+        if not usuario_existente:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        print(f"✅ Usuario encontrado para eliminar: {usuario_existente.get('nombre', 'N/A')}")
+        
+        # Eliminar usuario
+        collection = db.get_collection("usuarios")
+        result = collection.delete_one({"_id": ObjectId(user_id)})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="No se pudo eliminar el usuario")
+        
+        print(f"✅ Usuario eliminado exitosamente: {user_id}")
+        
+        return {
+            "message": "Usuario eliminado exitosamente",
+            "id": user_id,
+            "nombre": usuario_existente["nombre"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error en delete_user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 @app.get("/")

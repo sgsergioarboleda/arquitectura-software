@@ -4,6 +4,7 @@ from jose import JWTError, jwt
 from fastapi import HTTPException, status
 from services.config_service import config_service
 from services.mongodb_service import MongoDBService
+from services.password_service import password_service
 
 class AuthService:
     """
@@ -92,8 +93,8 @@ class AuthService:
             if not usuario:
                 return None
             
-            # Verificar contraseña (sin cifrado por el momento)
-            if usuario["contraseña"] != contraseña:
+            # Verificar contraseña usando el servicio de encriptación
+            if not password_service.verify_password(contraseña, usuario["contraseña"]):
                 return None
             
             return usuario

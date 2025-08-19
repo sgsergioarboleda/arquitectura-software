@@ -34,20 +34,25 @@ async def get_current_user(
                 detail="Token no contiene ID de usuario"
             )
         
-        # Buscar usuario en la base de datos
-        usuario = mongo_service.find_by_id("usuarios", user_id)
+        print(f"🔍 Buscando usuario con ID: {user_id}")
+        
+        # Buscar usuario en la base de datos usando el método mejorado
+        usuario = mongo_service.find_by_id_with_validation("usuarios", user_id)
         
         if not usuario:
+            print(f"❌ Usuario no encontrado con ID: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Usuario no encontrado"
+                detail="Usuario no encontrado en la base de datos"
             )
         
+        print(f"✅ Usuario encontrado: {usuario.get('nombre', 'N/A')} ({usuario.get('correo', 'N/A')})")
         return usuario
         
     except HTTPException:
         raise
     except Exception as e:
+        print(f"❌ Error en get_current_user: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Error de autenticación: {str(e)}"
