@@ -6,11 +6,18 @@ from datetime import datetime
 from bson import ObjectId
 
 # Importar servicios
-from services.mongodb_service import MongoDBService
 from services.config_service import config_service
+from services.mongodb_service import MongoDBService
 
 # Importar schemas de usuario
 from users.schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
+
+# Importar autenticación
+from Auth.auth_routes import auth_router
+from Auth.auth_dependencies import get_current_user, get_current_user_id
+
+# Importar dependencias compartidas
+from services.dependencies import get_mongodb, mongo_service
 
 # Crear instancia de FastAPI
 app = FastAPI(
@@ -19,20 +26,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Incluir rutas de autenticación
+app.include_router(auth_router)
+
 # Los schemas de usuario están ahora en users/schemas/user_schemas.py
-
-# Instancia del servicio MongoDB usando configuración
-mongo_service = MongoDBService(
-    config_service.mongodb_uri,
-    config_service.mongodb_database
-)
-
-# Dependency para verificar conexión a MongoDB
-async def get_mongodb():
-    if not mongo_service.is_connected():
-        if not mongo_service.connect():
-            raise HTTPException(status_code=500, detail="Error de conexión a MongoDB")
-    return mongo_service
 
 # Endpoint de salud
 @app.get("/health")
@@ -44,10 +41,18 @@ async def health_check():
     )
 
 @app.post("/user/create", response_model=UsuarioResponse, status_code=201)
-async def create_user(usuario: UsuarioCreate, db: MongoDBService = Depends(get_mongodb)):
+async def create_user(
+    usuario: UsuarioCreate, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Crear un nuevo usuario en la base de datos
     """
+
+    if current_user["tipo"] != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para crear usuarios")
+    
     try:
         # Verificar si el correo ya existe
         usuario_existente = db.find_one("usuarios", {"correo": usuario.correo})
@@ -91,17 +96,24 @@ async def create_user(usuario: UsuarioCreate, db: MongoDBService = Depends(get_m
 async def get_all_users(
     skip: int = 0, 
     limit: int = 100, 
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Obtener lista de usuarios con paginación
     """
     try:
-        # Obtener usuarios con límite y skip
-        usuarios = db.find_all("usuarios", limit=limit)
+        # Verificar conexión
+        if not db.is_connected():
+            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
         
-        # Aplicar skip manualmente ya que find_all no lo soporta directamente
-        usuarios = usuarios[skip:skip + limit]
+        # Obtener usuarios con límite y skip usando el método mejorado
+        usuarios = db.find_all("usuarios", limit=limit, skip=skip)
+        
+        # Log para debugging
+        print(f"DEBUG: Se encontraron {len(usuarios)} usuarios en la base de datos")
+        if usuarios:
+            print(f"DEBUG: Primer usuario: {usuarios[0]}")
         
         # Convertir a formato de respuesta
         usuarios_response = []
@@ -117,11 +129,16 @@ async def get_all_users(
         return usuarios_response
         
     except Exception as e:
+        print(f"ERROR en get_all_users: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 # READ - Obtener usuario por ID
 @app.get("/user/{user_id}", response_model=UsuarioResponse)
-async def get_user_by_id(user_id: str, db: MongoDBService = Depends(get_mongodb)):
+async def get_user_by_id(
+    user_id: str, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Obtener un usuario específico por su ID
     """
@@ -150,7 +167,11 @@ async def get_user_by_id(user_id: str, db: MongoDBService = Depends(get_mongodb)
 
 # READ - Buscar usuario por correo
 @app.get("/user/search/email/{email}")
-async def search_user_by_email(email: str, db: MongoDBService = Depends(get_mongodb)):
+async def search_user_by_email(
+    email: str, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Buscar usuario por correo electrónico
     """
@@ -177,11 +198,16 @@ async def search_user_by_email(email: str, db: MongoDBService = Depends(get_mong
 async def update_user(
     user_id: str, 
     usuario_update: UsuarioUpdate, 
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Actualizar un usuario existente
     """
+    
+    if current_user["tipo"] != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para editar usuarios")
+    
     try:
         # Validar formato del ID
         if not ObjectId.is_valid(user_id):
@@ -242,10 +268,18 @@ async def update_user(
 
 # DELETE - Eliminar usuario
 @app.delete("/user/{user_id}")
-async def delete_user(user_id: str, db: MongoDBService = Depends(get_mongodb)):
+async def delete_user(
+    user_id: str, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Eliminar un usuario por su ID
     """
+    
+    if current_user["tipo"] != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
+    
     try:
         # Validar formato del ID
         if not ObjectId.is_valid(user_id):
@@ -276,10 +310,17 @@ async def delete_user(user_id: str, db: MongoDBService = Depends(get_mongodb)):
 
 # DELETE - Eliminar todos los usuarios (ADMIN ONLY)
 @app.delete("/user/delete/all")
-async def delete_all_users(db: MongoDBService = Depends(get_mongodb)):
+async def delete_all_users(
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Eliminar todos los usuarios (solo para administradores)
     """
+    
+    if current_user["tipo"] != "admin":
+        raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
+    
     try:
         # Obtener colección
         collection = db.get_collection("usuarios")

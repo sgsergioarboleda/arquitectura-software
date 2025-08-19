@@ -32,8 +32,13 @@ class ConfigService:
         """Carga todas las configuraciones desde variables de entorno"""
         
         # MongoDB Configuration
-        self.mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-        self.mongodb_database = os.getenv("DATABASE_NAME", "usuarios_db")
+        self.mongodb_uri = os.getenv("MONGODB_URI")
+        self.mongodb_database = os.getenv("DATABASE_NAME")
+        
+        # JWT Configuration
+        self.jwt_secret = os.getenv("SECRET_PHRASE")
+        self.jwt_algorithm = os.getenv("JWT_ALGORITHM", "HS256")
+        self.jwt_expiration = int(os.getenv("JWT_EXPIRATION_MINUTES", "30"))
         
         # Application Configuration
         self.app_host = os.getenv("APP_HOST", "0.0.0.0")
@@ -67,13 +72,20 @@ class ConfigService:
     def get_mongodb_config(self) -> dict:
         """
         Obtiene la configuración de MongoDB
-        
-        Returns:
-            dict: Configuración de MongoDB
         """
         return {
             "uri": self.mongodb_uri,
             "database": self.mongodb_database
+        }
+    
+    def get_jwt_config(self) -> dict:
+        """
+        Obtiene la configuración de JWT
+        """
+        return {
+            "secret": self.jwt_secret,
+            "algorithm": self.jwt_algorithm,
+            "expiration_minutes": self.jwt_expiration
         }
     
     def get_app_config(self) -> dict:
@@ -115,12 +127,10 @@ class ConfigService:
     def get_all_config(self) -> dict:
         """
         Obtiene toda la configuración
-        
-        Returns:
-            dict: Toda la configuración
         """
         return {
             "mongodb": self.get_mongodb_config(),
+            "jwt": self.get_jwt_config(),
             "app": self.get_app_config()
         }
     

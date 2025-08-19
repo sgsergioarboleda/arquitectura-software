@@ -57,20 +57,22 @@ class MongoDBService:
         """
         Obtiene una colección específica
         """
-        if not self.database:
+        if self.database is None:
             return None
         return self.database[collection_name]
 
-    def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0) -> List[Dict[str, Any]]:
+    def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0, skip: int = 0) -> List[Dict[str, Any]]:
         """
-        Busca todos los documentos en una colección
+        Busca todos los documentos en una colección con paginación
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return []
             query = filter_query if filter_query else {}
             cursor = collection.find(query)
+            if skip > 0:
+                cursor = cursor.skip(skip)
             if limit > 0:
                 cursor = cursor.limit(limit)
             return list(cursor)
@@ -84,7 +86,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return None
             return collection.find_one(filter_query)
         except Exception as e:
@@ -97,7 +99,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection or not ObjectId.is_valid(document_id):
+            if collection is None or not ObjectId.is_valid(document_id):
                 return None
             return collection.find_one({"_id": ObjectId(document_id)})
         except Exception as e:
@@ -110,7 +112,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return 0
             query = filter_query if filter_query else {}
             return collection.count_documents(query)
@@ -124,7 +126,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return []
             return list(collection.aggregate(pipeline))
         except Exception as e:
@@ -135,4 +137,13 @@ class MongoDBService:
         """
         Verifica si la conexión está activa
         """
-        return self.client is not None and self.database is not None
+        try:
+            # Verificar que tanto el cliente como la base de datos existan
+            if self.client is None or self.database is None:
+                return False
+            
+            # Verificar que la conexión esté activa haciendo un ping
+            self.client.admin.command('ping')
+            return True
+        except Exception:
+            return False
