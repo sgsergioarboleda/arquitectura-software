@@ -23,6 +23,7 @@ app = FastAPI(
 
 # Instancia del servicio MongoDB usando configuración
 mongo_service = MongoDBService(
+    config_service.mongodb_uri,
     config_service.mongodb_database
 )
 
@@ -307,6 +308,14 @@ async def root():
     }
 
 if __name__ == "__main__":
+    # Prueba de conexión
+    print("🔄 Probando conexión a MongoDB Atlas...")
+    if mongo_service.connect():
+        print("✅ Conexión exitosa a MongoDB Atlas")
+    else:
+        print("❌ Error al conectar a MongoDB Atlas")
+        exit(1)
+    
     import uvicorn
     
     if not config_service.validate_configuration():
@@ -320,4 +329,4 @@ if __name__ == "__main__":
         app, 
         host=config_service.app_host, 
         port=config_service.app_port
-    ) 
+    )

@@ -28,19 +28,20 @@ class MongoDBService:
     def connect(self) -> bool:
         """
         Establece conexión con MongoDB usando ServerApi
-        
-        Returns:
-            bool: True si la conexión fue exitosa, False en caso contrario
         """
         try:
-            self.client = MongoClient(self.uri, server_api=ServerApi('1'))
-            self.database = self.client[self.database_name]
+            self.client = MongoClient(
+                self.uri,
+                server_api=ServerApi('1'),
+                serverSelectionTimeoutMS=5000  # 5 segundos de timeout
+            )
             # Prueba la conexión
             self.client.admin.command('ping')
-            self.logger.info("Conexión a MongoDB exitosa")
+            self.database = self.client[self.database_name]
+            self.logger.info("✅ Conexión a MongoDB Atlas exitosa")
             return True
         except Exception as e:
-            self.logger.error(f"Error de conexión a MongoDB: {e}")
+            self.logger.error(f"❌ Error de conexión a MongoDB Atlas: {str(e)}")
             self.client = None
             self.database = None
             return False
