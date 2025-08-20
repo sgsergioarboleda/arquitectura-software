@@ -19,6 +19,7 @@ from Auth.auth_dependencies import get_current_user, get_current_user_id
 
 # Importar dependencias compartidas
 from services.dependencies import get_mongodb, mongo_service
+from routes.storage_routes import router as storage_router
 
 # Crear instancia de FastAPI
 app = FastAPI(
@@ -29,6 +30,8 @@ app = FastAPI(
 
 # Incluir rutas de autenticación
 app.include_router(auth_router)
+# Include storage routes
+app.include_router(storage_router)
 
 # Los schemas de usuario están ahora en users/schemas/user_schemas.py
 
