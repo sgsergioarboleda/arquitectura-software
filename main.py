@@ -14,8 +14,8 @@ from services.password_service import password_service
 from users.schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
 
 # Importar autenticación
-from Auth.auth_routes import auth_router
-from Auth.auth_dependencies import get_current_user, get_current_user_id
+from auth.auth_routes import auth_router
+from auth.auth_dependencies import get_current_user, get_current_user_id
 
 # Importar dependencias compartidas
 from services.dependencies import get_mongodb, mongo_service

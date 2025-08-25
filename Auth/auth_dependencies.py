@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from Auth.auth_service import auth_service
+from auth.auth_service import auth_service
 from services.dependencies import get_mongodb
 
 # Esquema de autenticación HTTP Bearer
