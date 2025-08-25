@@ -18,7 +18,7 @@ Automatizar diversas tareas de la Universidad Sergio Arboleda con el fin de mejo
 
 # Tecnologias a usar:
 
-*MongoDB 
+* MongoDB 
 * ReactJs
 * Python con fastapi
 * Python con librerias de modelos de IA
