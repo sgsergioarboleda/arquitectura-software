@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
 from services.config_service import config_service
@@ -126,6 +126,47 @@ class AuthService:
             )
         
         return user_id
+
+    def validate_role(self, user: dict, required_roles: List[str]) -> bool:
+        """
+        Valida si un usuario tiene los roles requeridos
+        
+        Args:
+            user: Usuario a validar
+            required_roles: Lista de roles requeridos
+            
+        Returns:
+            bool: True si el usuario tiene al menos uno de los roles requeridos
+        """
+        if not user or "tipo" not in user:
+            return False
+        return user["tipo"] in required_roles
+
+    async def validate_token_and_permissions(
+        self, 
+        token: str, 
+        required_roles: List[str]
+    ) -> dict:
+        """
+        Valida token y permisos en una sola operación
+        
+        Args:
+            token: Token JWT
+            required_roles: Lista de roles requeridos
+            
+        Returns:
+            dict: Payload del token si es válido y tiene permisos
+            
+        Raises:
+            HTTPException: Si el token es inválido o no tiene permisos
+        """
+        payload = self.verify_token(token)
+        if not self.validate_role(payload, required_roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes los permisos necesarios"
+            )
+        return payload
 
 # Instancia global del servicio de autenticación
 auth_service = AuthService()

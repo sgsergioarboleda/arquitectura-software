@@ -15,7 +15,7 @@ from users.schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
 
 # Importar autenticación
 from auth.auth_routes import auth_router
-from auth.auth_dependencies import get_current_user, get_current_user_id
+from auth.auth_dependencies import get_current_user, get_current_user_id, require_admin, require_user, UserRole
 
 # Importar dependencias compartidas
 from services.dependencies import get_mongodb, mongo_service
@@ -176,7 +176,7 @@ async def debug_user_by_id(user_id: str, db: MongoDBService = Depends(get_mongod
 async def create_user(
     usuario: UsuarioCreate, 
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
+    _: dict = Depends(require_admin)  # Solo admins pueden crear usuarios
 ):
     """
     Crear un nuevo usuario en la base de datos
@@ -245,7 +245,7 @@ async def get_all_users(
     skip: int = 0, 
     limit: int = 100, 
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
+    _: dict = Depends(require_user)  # Cualquier usuario autenticado puede ver la lista
 ):
     """
     Obtener lista de usuarios con paginación
@@ -312,7 +312,7 @@ async def search_user_by_email(
 @app.delete("/user/delete/all")
 async def delete_all_users(
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
+    _: dict = Depends(require_admin)  # Solo admins pueden eliminar todos los usuarios
 ):
     """
     Eliminar todos los usuarios (solo para administradores)
