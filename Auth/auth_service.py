@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from jose import JWTError, jwt
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
 from services.config_service import config_service
-from services.mongodb_service import MongoDBService
 from services.password_service import password_service
 
 class AuthService:
@@ -74,7 +73,7 @@ class AuthService:
                 detail="Token inválido"
             )
     
-    def authenticate_user(self, mongo_service: MongoDBService, correo: str, contraseña: str) -> Optional[Dict[str, Any]]:
+    async def authenticate_user(self, mongo_service, correo: str, contraseña: str) -> Optional[Dict[str, Any]]:
         """
         Autentica un usuario verificando correo y contraseña
         

@@ -1,6 +1,5 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import JSONResponse
 from enum import Enum
 from typing import List, Dict, Tuple
 from auth.auth_service import auth_service
@@ -14,26 +13,7 @@ class UserRole(Enum):
     ADMIN = "admin"
     USER = "usuario"
 
-def check_permissions(required_roles: List[UserRole]):
-    async def permission_checker(current_user: dict = Depends(get_current_user)):
-        if not current_user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No autenticado"
-            )
-        
-        if current_user["tipo"] not in [role.value for role in required_roles]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Acceso denegado. Roles requeridos: {[role.value for role in required_roles]}"
-            )
-        return current_user
-    return permission_checker
-
-# Funciones de autorización específicas
-require_admin = check_permissions([UserRole.ADMIN])
-require_user = check_permissions([UserRole.USER, UserRole.ADMIN])
-
+# Primero definimos get_current_user
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     mongo_service = Depends(get_mongodb)
@@ -85,6 +65,27 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Error de autenticación: {str(e)}"
         )
+
+# Luego definimos check_permissions
+def check_permissions(required_roles: List[UserRole]):
+    async def permission_checker(current_user: dict = Depends(get_current_user)):
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No autenticado"
+            )
+        
+        if current_user["tipo"] not in [role.value for role in required_roles]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acceso denegado. Roles requeridos: {[role.value for role in required_roles]}"
+            )
+        return current_user
+    return permission_checker
+
+# Funciones de autorización específicas
+require_admin = check_permissions([UserRole.ADMIN])
+require_user = check_permissions([UserRole.USER, UserRole.ADMIN])
 
 async def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(security)
@@ -140,20 +141,3 @@ class RateLimiter:
         return False, len(self.requests[ip])
 
 rate_limiter = RateLimiter()
-
-@app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
-    client_ip = request.client.host
-    is_limited, current_requests = await rate_limiter.is_rate_limited(client_ip)
-    
-    if is_limited:
-        return JSONResponse(
-            status_code=429,
-            content={
-                "error": "Too many requests",
-                "detail": f"Rate limit exceeded. Try again later."
-            }
-        )
-    
-    response = await call_next(request)
-    return response

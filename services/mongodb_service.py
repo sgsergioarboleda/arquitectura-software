@@ -104,6 +104,33 @@ class MongoDBService:
             self.logger.error(f"Error en find_by_id: {e}")
             return None
 
+    def find_by_id_with_validation(self, collection_name: str, document_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Busca un documento por su ID con validación adicional
+        """
+        try:
+            # Validar formato del ID
+            if not ObjectId.is_valid(document_id):
+                self.logger.error(f"ID inválido: {document_id}")
+                return None
+                
+            # Buscar documento
+            collection = self.get_collection(collection_name)
+            if not collection:
+                self.logger.error(f"Colección no encontrada: {collection_name}")
+                return None
+                
+            document = collection.find_one({"_id": ObjectId(document_id)})
+            if not document:
+                self.logger.error(f"Documento no encontrado con ID: {document_id}")
+                return None
+                
+            return document
+            
+        except Exception as e:
+            self.logger.error(f"Error en find_by_id_with_validation: {e}")
+            return None
+
     def count_documents(self, collection_name: str, filter_query: Dict = None) -> int:
         """
         Cuenta documentos en una colección
@@ -130,6 +157,10 @@ class MongoDBService:
         except Exception as e:
             self.logger.error(f"Error en aggregate: {e}")
             return []
+
+    def is_valid_object_id(self, id_str: str) -> bool:
+        """Verifica si un string es un ObjectId válido"""
+        return ObjectId.is_valid(id_str)
 
     def is_connected(self) -> bool:
         """

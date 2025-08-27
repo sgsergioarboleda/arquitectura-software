@@ -28,7 +28,7 @@ async def login(
     """
     try:
         # Autenticar usuario
-        usuario = auth_service.authenticate_user(
+        usuario = await auth_service.authenticate_user(
             mongo_service, 
             login_data.correo, 
             login_data.contraseña
