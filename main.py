@@ -1,9 +1,9 @@
+import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
-import uvicorn  # Agregar esta importación al inicio
 
 # Importar servicios
 from services.config_service import config_service
@@ -559,14 +559,14 @@ async def root():
         "version": "1.0.0"
     }
 
-if __name__ == "__main__":
-    # Prueba de conexión
-    print("🔄 Probando conexión a MongoDB Atlas...")
+@app.on_event("startup")
+async def startup_event():
+    """Inicializa conexiones y servicios al arrancar la aplicación"""
+    print("🔄 Iniciando conexión a MongoDB Atlas...")
     if mongo_service.connect():
         print("✅ Conexión exitosa a MongoDB Atlas")
     else:
         print("❌ Error al conectar a MongoDB Atlas")
-        exit(1)
     
     if not config_service.validate_configuration():
         print("❌ Error en la configuración. Revisa las variables de entorno.")
@@ -574,9 +574,13 @@ if __name__ == "__main__":
     
     print(f"🚀 Iniciando API en {config_service.app_host}:{config_service.app_port}")
     print(f"🌍 Debug: {config_service.app_debug}")
-    
+
+# Agregar al final del archivo
+if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(
-        app, 
-        host=config_service.app_host, 
-        port=config_service.app_port
+        "main:app",
+        host=config_service.app_host,
+        port=config_service.app_port,
+        reload=config_service.app_debug
     )
