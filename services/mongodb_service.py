@@ -167,3 +167,21 @@ class MongoDBService:
         Verifica si la conexión está activa
         """
         return self.client is not None and self.database is not None
+
+    def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Búsqueda segura por email con sanitización"""
+        if not isinstance(email, str):
+            return None
+            
+        # Sanitizar email
+        email = email.lower().strip()
+        if not self._is_valid_email(email):
+            return None
+            
+        return self.find_one("usuarios", {"correo": email})
+
+    def _is_valid_email(self, email: str) -> bool:
+        """Validación de formato de email"""
+        import re
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(pattern, email))

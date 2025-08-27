@@ -1,6 +1,7 @@
 from passlib.context import CryptContext
 from typing import Optional
 import hashlib
+import os
 
 class PasswordService:
     """
@@ -10,10 +11,11 @@ class PasswordService:
     
     def __init__(self):
         # Configurar el contexto de encriptación con bcrypt y sha512
+        # Aumentar rondas de bcrypt para mayor seguridad
         self.pwd_context = CryptContext(
             schemes=["bcrypt"],
             deprecated="auto",
-            bcrypt__rounds=12  # Aumentar rondas para mayor seguridad
+            bcrypt__rounds=14  # Aumentado de 12 a 14
         )
     
     def hash_password(self, password: str) -> str:
@@ -26,8 +28,11 @@ class PasswordService:
         Returns:
             str: Contraseña encriptada (hash)
         """
+        # Añadir sal adicional
+        pepper = os.getenv("PASSWORD_PEPPER", "default_pepper")
+        peppered_password = f"{password}{pepper}"
         # Primero aplicar SHA512
-        sha512_hash = hashlib.sha512(password.encode()).hexdigest()
+        sha512_hash = hashlib.sha512(peppered_password.encode()).hexdigest()
         # Luego aplicar bcrypt
         return self.pwd_context.hash(sha512_hash)
     

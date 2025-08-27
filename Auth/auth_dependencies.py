@@ -75,11 +75,25 @@ def check_permissions(required_roles: List[UserRole]):
                 detail="No autenticado"
             )
         
-        if current_user["tipo"] not in [role.value for role in required_roles]:
+        # Verificar que el rol existe y es válido
+        if "tipo" not in current_user:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Acceso denegado. Roles requeridos: {[role.value for role in required_roles]}"
+                detail="Usuario sin rol definido"
             )
+            
+        # Validación más estricta de roles
+        user_role = current_user["tipo"].lower()
+        allowed_roles = [role.value.lower() for role in required_roles]
+        
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acceso denegado. Rol requerido: {allowed_roles}"
+            )
+            
+        # Registrar intento de acceso
+        print(f"👤 Acceso autorizado: {current_user['correo']} ({user_role})")
         return current_user
     return permission_checker
 

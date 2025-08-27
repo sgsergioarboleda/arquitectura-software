@@ -12,6 +12,9 @@ class AuthService:
     
     def __init__(self):
         self.jwt_config = config_service.get_jwt_config()
+        self.failed_attempts = {}
+        self.lockout_duration = 300  # 5 minutos
+        self.max_attempts = 5
     
     def create_access_token(self, data: Dict[str, Any]) -> str:
         """
@@ -85,6 +88,13 @@ class AuthService:
         Returns:
             Optional[Dict[str, Any]]: Usuario autenticado o None si falla
         """
+        # Verificar bloqueo
+        if self._is_account_locked(correo):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Cuenta bloqueada temporalmente. Intente más tarde."
+            )
+            
         try:
             # Buscar usuario por correo
             usuario = mongo_service.find_one("usuarios", {"correo": correo})
@@ -94,7 +104,11 @@ class AuthService:
             
             # Verificar contraseña usando el servicio de encriptación
             if not password_service.verify_password(contraseña, usuario["contraseña"]):
+                self._track_failed_attempt(correo)
                 return None
+            
+            # Reiniciar contador de intentos fallidos
+            self.failed_attempts[correo] = {"count": 0, "last_attempt": None}
             
             return usuario
             
@@ -166,6 +180,43 @@ class AuthService:
                 detail="No tienes los permisos necesarios"
             )
         return payload
+
+    def _track_failed_attempt(self, correo: str):
+        """
+        Rastrea los intentos fallidos de inicio de sesión
+        
+        Args:
+            correo: Correo electrónico del usuario
+        """
+        if correo in self.failed_attempts:
+            self.failed_attempts[correo]["count"] += 1
+            self.failed_attempts[correo]["last_attempt"] = datetime.utcnow()
+        else:
+            self.failed_attempts[correo] = {"count": 1, "last_attempt": datetime.utcnow()}
+    
+    def _is_account_locked(self, correo: str) -> bool:
+        """
+        Verifica si la cuenta está bloqueada debido a intentos fallidos
+        
+        Args:
+            correo: Correo electrónico del usuario
+            
+        Returns:
+            bool: True si la cuenta está bloqueada, False en caso contrario
+        """
+        if correo not in self.failed_attempts:
+            return False
+        
+        attempts = self.failed_attempts[correo]
+        if attempts["count"] >= self.max_attempts:
+            # Verificar si ha pasado el tiempo de bloqueo
+            if (datetime.utcnow() - attempts["last_attempt"]).total_seconds() < self.lockout_duration:
+                return True
+            else:
+                # Reiniciar contador después del período de bloqueo
+                self.failed_attempts[correo] = {"count": 0, "last_attempt": None}
+        
+        return False
 
 # Instancia global del servicio de autenticación
 auth_service = AuthService()
