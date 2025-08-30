@@ -38,10 +38,10 @@ class MongoDBService:
             # Prueba la conexión
             self.client.admin.command('ping')
             self.database = self.client[self.database_name]
-            self.logger.info("✅ Conexión a MongoDB Atlas exitosa")
+            self.logger.info("Conexión a MongoDB Atlas exitosa")
             return True
         except Exception as e:
-            self.logger.error(f"❌ Error de conexión a MongoDB Atlas: {str(e)}")
+            self.logger.error(f"Error de conexión a MongoDB Atlas: {str(e)}")
             self.client = None
             self.database = None
             return False
@@ -57,22 +57,20 @@ class MongoDBService:
         """
         Obtiene una colección específica
         """
-        if self.database is None:
+        if not self.database:
             return None
         return self.database[collection_name]
 
-    def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0, skip: int = 0) -> List[Dict[str, Any]]:
+    def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0) -> List[Dict[str, Any]]:
         """
-        Busca todos los documentos en una colección con paginación
+        Busca todos los documentos en una colección
         """
         try:
             collection = self.get_collection(collection_name)
-            if collection is None:
+            if not collection:
                 return []
             query = filter_query if filter_query else {}
             cursor = collection.find(query)
-            if skip > 0:
-                cursor = cursor.skip(skip)
             if limit > 0:
                 cursor = cursor.limit(limit)
             return list(cursor)
@@ -86,7 +84,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if collection is None:
+            if not collection:
                 return None
             return collection.find_one(filter_query)
         except Exception as e:
@@ -99,80 +97,38 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if collection is None:
-                self.logger.error(f"❌ No se pudo obtener la colección '{collection_name}'")
+            if not collection or not ObjectId.is_valid(document_id):
                 return None
-            
-            # Validar formato del ID
-            if not ObjectId.is_valid(document_id):
-                self.logger.error(f"❌ ID inválido: '{document_id}' no es un ObjectId válido")
-                return None
-            
-            # Convertir a ObjectId y buscar
-            object_id = ObjectId(document_id)
-            result = collection.find_one({"_id": object_id})
-            
-            if result is None:
-                self.logger.warning(f"⚠️ No se encontró documento con ID '{document_id}' en la colección '{collection_name}'")
-            else:
-                self.logger.info(f"✅ Documento encontrado con ID '{document_id}' en la colección '{collection_name}'")
-            
-            return result
-            
+            return collection.find_one({"_id": ObjectId(document_id)})
         except Exception as e:
-            self.logger.error(f"❌ Error en find_by_id para ID '{document_id}': {e}")
+            self.logger.error(f"Error en find_by_id: {e}")
             return None
-
-    def is_valid_object_id(self, document_id: str) -> bool:
-        """
-        Valida si un string es un ObjectId válido de MongoDB
-        
-        Args:
-            document_id: String a validar
-            
-        Returns:
-            bool: True si es válido, False en caso contrario
-        """
-        try:
-            return ObjectId.is_valid(document_id)
-        except Exception as e:
-            self.logger.error(f"Error validando ObjectId '{document_id}': {e}")
-            return False
 
     def find_by_id_with_validation(self, collection_name: str, document_id: str) -> Optional[Dict[str, Any]]:
         """
-        Busca un documento por su ID con validación previa y logging detallado
-        
-        Args:
-            collection_name: Nombre de la colección
-            document_id: ID del documento a buscar
-            
-        Returns:
-            Optional[Dict[str, Any]]: Documento encontrado o None
+        Busca un documento por su ID con validación adicional
         """
         try:
-            # Validar formato del ID primero
-            if not self.is_valid_object_id(document_id):
-                self.logger.error(f"❌ ID inválido: '{document_id}' no es un ObjectId válido")
+            # Validar formato del ID
+            if not ObjectId.is_valid(document_id):
+                self.logger.error(f"ID inválido: {document_id}")
                 return None
-            
-            # Verificar conexión
-            if not self.is_connected():
-                self.logger.error("❌ No hay conexión activa a MongoDB")
-                return None
-            
+                
             # Buscar documento
-            result = self.find_by_id(collection_name, document_id)
-            
-            if result is None:
-                self.logger.warning(f"⚠️ Documento no encontrado: ID '{document_id}' en colección '{collection_name}'")
-            else:
-                self.logger.info(f"✅ Documento encontrado: ID '{document_id}' en colección '{collection_name}'")
-            
-            return result
+            collection = self.get_collection(collection_name)
+            if not collection:
+                self.logger.error(f"Colección no encontrada: {collection_name}")
+                return None
+                
+            document = collection.find_one({"_id": ObjectId(document_id)})
+            if not document:
+                self.logger.error(f"Documento no encontrado con ID: {document_id}")
+                return None
+                
+            return document
             
         except Exception as e:
-            self.logger.error(f"❌ Error en find_by_id_with_validation: {e}")
+            self.logger.error(f"Error en find_by_id_with_validation: {e}")
             return None
 
     def count_documents(self, collection_name: str, filter_query: Dict = None) -> int:
@@ -181,7 +137,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if collection is None:
+            if not collection:
                 return 0
             query = filter_query if filter_query else {}
             return collection.count_documents(query)
@@ -195,24 +151,37 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if collection is None:
+            if not collection:
                 return []
             return list(collection.aggregate(pipeline))
         except Exception as e:
             self.logger.error(f"Error en aggregate: {e}")
             return []
 
+    def is_valid_object_id(self, id_str: str) -> bool:
+        """Verifica si un string es un ObjectId válido"""
+        return ObjectId.is_valid(id_str)
+
     def is_connected(self) -> bool:
         """
         Verifica si la conexión está activa
         """
-        try:
-            # Verificar que tanto el cliente como la base de datos existan
-            if self.client is None or self.database is None:
-                return False
+        return self.client is not None and self.database is not None
+
+    def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Búsqueda segura por email con sanitización"""
+        if not isinstance(email, str):
+            return None
             
-            # Verificar que la conexión esté activa haciendo un ping
-            self.client.admin.command('ping')
-            return True
-        except Exception:
-            return False
+        # Sanitizar email
+        email = email.lower().strip()
+        if not self._is_valid_email(email):
+            return None
+            
+        return self.find_one("usuarios", {"correo": email})
+
+    def _is_valid_email(self, email: str) -> bool:
+        """Validación de formato de email"""
+        import re
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(pattern, email))

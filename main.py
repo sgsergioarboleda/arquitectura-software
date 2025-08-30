@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+import uvicorn
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.responses import JSONResponse
-from typing import List
-import os
+from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 
@@ -9,13 +9,14 @@ from bson import ObjectId
 from services.config_service import config_service
 from services.mongodb_service import MongoDBService
 from services.password_service import password_service
+from services.rate_limiter import rate_limiter
 
 # Importar schemas de usuario
 from users.schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
 
 # Importar autenticación
-from Auth.auth_routes import auth_router
-from Auth.auth_dependencies import get_current_user, get_current_user_id
+from auth.auth_routes import auth_router
+from auth.auth_dependencies import get_current_user, get_current_user_id, require_admin, require_user, UserRole
 
 # Importar dependencias compartidas
 from services.dependencies import get_mongodb, mongo_service
@@ -28,6 +29,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Rate limiting middleware
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    client_ip = request.client.host
+    is_limited, current_requests = await rate_limiter.is_rate_limited(client_ip)
+    
+    if is_limited:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "Too many requests",
+                "detail": "Rate limit exceeded. Try again later."
+            }
+        )
+    
+    response = await call_next(request)
+    return response
+
 # Incluir rutas de autenticación
 app.include_router(auth_router)
 # Include storage routes
@@ -38,18 +57,40 @@ app.include_router(storage_router)
 # Endpoint de salud
 @app.get("/health")
 async def health_check():
-    """Endpoint de verificación de salud de la API"""
-    return JSONResponse(
-        status_code=200,
-        content="API de Usuarios"
-    )
+    try:
+        # Verificar conexión a MongoDB
+        if not mongo_service.is_connected():
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "message": "MongoDB no conectado",
+                    "mongodb_connected": False,
+                    "timestamp": datetime.now().isoformat()
+                }
+            )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "message": "API funcionando correctamente",
+                "mongodb_connected": True,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": f"Error en health check: {str(e)}"
+            }
+        )
 
 # Endpoint de debug para MongoDB
 @app.get("/debug/mongodb")
 async def debug_mongodb(db: MongoDBService = Depends(get_mongodb)):
-    """
-    Endpoint de debug para verificar la conexión a MongoDB y mostrar información útil
-    """
     try:
         # Verificar conexión
         is_connected = db.is_connected()
@@ -58,14 +99,9 @@ async def debug_mongodb(db: MongoDBService = Depends(get_mongodb)):
             return {
                 "status": "error",
                 "message": "No hay conexión a MongoDB",
-                "connection": False
+                "connection": False,
+                "timestamp": datetime.now().isoformat()
             }
-        
-        # Contar usuarios
-        total_usuarios = db.count_documents("usuarios")
-        
-        # Obtener algunos usuarios de ejemplo
-        usuarios_ejemplo = db.find_all("usuarios", limit=3)
         
         # Formatear usuarios para mostrar
         usuarios_formateados = []
@@ -74,8 +110,7 @@ async def debug_mongodb(db: MongoDBService = Depends(get_mongodb)):
                 "id": str(usuario["_id"]),
                 "nombre": usuario.get("nombre", "N/A"),
                 "correo": usuario.get("correo", "N/A"),
-                "tipo": usuario.get("tipo", "N/A"),
-                "fecha_creacion": usuario.get("fecha_creacion", "N/A")
+                "tipo": usuario.get("tipo", "N/A")
             })
         
         return {
@@ -176,16 +211,17 @@ async def debug_user_by_id(user_id: str, db: MongoDBService = Depends(get_mongod
 async def create_user(
     usuario: UsuarioCreate, 
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_admin)
 ):
-    """
-    Crear un nuevo usuario en la base de datos
-    """
-
-    if current_user["tipo"] != "admin":
-        raise HTTPException(status_code=403, detail="No tienes permisos para crear usuarios")
-    
+    """Crear un nuevo usuario en la base de datos"""
     try:
+        # Verificar permisos
+        if current_user["tipo"] != "admin":
+            raise HTTPException(
+                status_code=403, 
+                detail="No tienes permisos para crear usuarios"
+            )
+        
         # Verificar si el correo ya existe
         usuario_existente = db.find_one("usuarios", {"correo": usuario.correo})
         if usuario_existente:
@@ -245,34 +281,34 @@ async def get_all_users(
     skip: int = 0, 
     limit: int = 100, 
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
+    _: dict = Depends(require_user)
 ):
     """
     Obtener lista de usuarios con paginación
     """
     try:
-        # Verificar conexión
         if not db.is_connected():
-            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-        
-        # Obtener usuarios con límite y skip usando el método mejorado
+            raise HTTPException(
+                status_code=500,
+                detail="No hay conexión a MongoDB"
+            )
+            
         usuarios = db.find_all("usuarios", limit=limit, skip=skip)
         
-        # Log para debugging
-        print(f"DEBUG: Se encontraron {len(usuarios)} usuarios en la base de datos")
         if usuarios:
-            print(f"DEBUG: Primer usuario: {usuarios[0]}")
-        
-        # Convertir a formato de respuesta
+            print(f"Encontrados {len(usuarios)} usuarios")
+            
         usuarios_response = []
         for usuario in usuarios:
-            usuarios_response.append(UsuarioResponse(
-                id=str(usuario["_id"]),
-                nombre=usuario["nombre"],
-                correo=usuario["correo"],
-                tipo=usuario["tipo"],
-                fecha_creacion=usuario.get("fecha_creacion")
-            ))
+            usuarios_response.append(
+                UsuarioResponse(
+                    id=str(usuario["_id"]),
+                    nombre=usuario["nombre"],
+                    correo=usuario["correo"],
+                    tipo=usuario["tipo"],
+                    fecha_creacion=usuario.get("fecha_creacion")
+                )
+            )
         
         return usuarios_response
         
@@ -312,7 +348,7 @@ async def search_user_by_email(
 @app.delete("/user/delete/all")
 async def delete_all_users(
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_admin)  # Cambiar _ por current_user
 ):
     """
     Eliminar todos los usuarios (solo para administradores)
@@ -481,10 +517,6 @@ async def delete_user(
     db: MongoDBService = Depends(get_mongodb),
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Eliminar un usuario por su ID
-    """
-    
     if current_user["tipo"] != "admin":
         raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
     
@@ -492,39 +524,32 @@ async def delete_user(
         # Validar formato del ID
         if not db.is_valid_object_id(user_id):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail=f"ID inválido: '{user_id}' no es un ObjectId válido"
+                status_code=400,
+                detail="ID de usuario inválido"
             )
-        
-        print(f"🔍 Verificando existencia del usuario a eliminar con ID: {user_id}")
-        
-        # Verificar que el usuario existe usando el método mejorado
-        usuario_existente = db.find_by_id_with_validation("usuarios", user_id)
-        if not usuario_existente:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-        print(f"✅ Usuario encontrado para eliminar: {usuario_existente.get('nombre', 'N/A')}")
-        
+            
         # Eliminar usuario
         collection = db.get_collection("usuarios")
         result = collection.delete_one({"_id": ObjectId(user_id)})
         
         if result.deleted_count == 0:
-            raise HTTPException(status_code=400, detail="No se pudo eliminar el usuario")
-        
-        print(f"✅ Usuario eliminado exitosamente: {user_id}")
-        
+            raise HTTPException(
+                status_code=404,
+                detail="Usuario no encontrado"
+            )
+            
         return {
             "message": "Usuario eliminado exitosamente",
-            "id": user_id,
-            "nombre": usuario_existente["nombre"]
+            "user_id": user_id
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error en delete_user: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
 
 @app.get("/")
 async def root():
@@ -534,16 +559,14 @@ async def root():
         "version": "1.0.0"
     }
 
-if __name__ == "__main__":
-    # Prueba de conexión
-    print("🔄 Probando conexión a MongoDB Atlas...")
+@app.on_event("startup")
+async def startup_event():
+    """Inicializa conexiones y servicios al arrancar la aplicación"""
+    print("🔄 Iniciando conexión a MongoDB Atlas...")
     if mongo_service.connect():
         print("✅ Conexión exitosa a MongoDB Atlas")
     else:
         print("❌ Error al conectar a MongoDB Atlas")
-        exit(1)
-    
-    import uvicorn
     
     if not config_service.validate_configuration():
         print("❌ Error en la configuración. Revisa las variables de entorno.")
@@ -551,9 +574,13 @@ if __name__ == "__main__":
     
     print(f"🚀 Iniciando API en {config_service.app_host}:{config_service.app_port}")
     print(f"🌍 Debug: {config_service.app_debug}")
-    
+
+# Agregar al final del archivo
+if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(
-        app, 
-        host=config_service.app_host, 
-        port=config_service.app_port
+        "main:app",
+        host=config_service.app_host,
+        port=config_service.app_port,
+        reload=config_service.app_debug
     )

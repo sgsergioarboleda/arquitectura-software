@@ -2,6 +2,7 @@ import requests
 import logging
 from fastapi import HTTPException
 from services.config_service import config_service
+from urllib.parse import urlparse
 
 class LambdaService:
     def __init__(self):
@@ -24,6 +25,22 @@ class LambdaService:
                 status_code=500,
                 detail="Error al conectar con Lambda"
             )
+
+    def _validate_url(self, url: str) -> bool:
+        """Validar URL para prevenir SSRF"""
+        try:
+            parsed = urlparse(url)
+            return all([
+                parsed.scheme in ['http', 'https'],
+                not parsed.netloc.startswith('127.'),
+                not parsed.netloc.startswith('localhost'),
+                not parsed.netloc.startswith('169.254.'),
+                not parsed.netloc.startswith('10.'),
+                not parsed.netloc.startswith('172.16.'),
+                not parsed.netloc.startswith('192.168.')
+            ])
+        except Exception:
+            return False
 
 # Instancia global
 lambda_service = LambdaService()

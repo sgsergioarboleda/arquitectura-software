@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
-from Auth.auth_service import auth_service
-from Auth.auth_schemas import LoginRequest, LoginResponse, LogoutResponse
+from auth.auth_service import auth_service
+from auth.auth_schemas import LoginRequest, LoginResponse, LogoutResponse
 from services.mongodb_service import MongoDBService
 from services.dependencies import get_mongodb
 
@@ -28,7 +28,7 @@ async def login(
     """
     try:
         # Autenticar usuario
-        usuario = auth_service.authenticate_user(
+        usuario = await auth_service.authenticate_user(
             mongo_service, 
             login_data.correo, 
             login_data.contraseña

@@ -1,19 +1,26 @@
 from passlib.context import CryptContext
 from typing import Optional
+import hashlib
+import os
 
 class PasswordService:
     """
     Servicio para manejar la encriptación y verificación de contraseñas
-    Utiliza bcrypt para el hash seguro de contraseñas
+    Utiliza SHA512 + bcrypt para el hash seguro de contraseñas
     """
     
     def __init__(self):
-        # Configurar el contexto de encriptación con bcrypt
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        # Configurar el contexto de encriptación con bcrypt y sha512
+        # Aumentar rondas de bcrypt para mayor seguridad
+        self.pwd_context = CryptContext(
+            schemes=["bcrypt"],
+            deprecated="auto",
+            bcrypt__rounds=14  # Aumentado de 12 a 14
+        )
     
     def hash_password(self, password: str) -> str:
         """
-        Encripta una contraseña usando bcrypt
+        Encripta una contraseña usando SHA512 + bcrypt
         
         Args:
             password: Contraseña en texto plano
@@ -21,7 +28,13 @@ class PasswordService:
         Returns:
             str: Contraseña encriptada (hash)
         """
-        return self.pwd_context.hash(password)
+        # Añadir sal adicional
+        pepper = os.getenv("PASSWORD_PEPPER", "default_pepper")
+        peppered_password = f"{password}{pepper}"
+        # Primero aplicar SHA512
+        sha512_hash = hashlib.sha512(peppered_password.encode()).hexdigest()
+        # Luego aplicar bcrypt
+        return self.pwd_context.hash(sha512_hash)
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """
@@ -34,7 +47,9 @@ class PasswordService:
         Returns:
             bool: True si la contraseña coincide, False en caso contrario
         """
-        return self.pwd_context.verify(plain_password, hashed_password)
+        # Aplicar SHA512 antes de verificar con bcrypt
+        sha512_hash = hashlib.sha512(plain_password.encode()).hexdigest()
+        return self.pwd_context.verify(sha512_hash, hashed_password)
     
     def is_password_strong(self, password: str) -> tuple[bool, Optional[str]]:
         """
@@ -46,8 +61,8 @@ class PasswordService:
         Returns:
             tuple[bool, Optional[str]]: (es_fuerte, mensaje_error)
         """
-        if len(password) < 8:
-            return False, "La contraseña debe tener al menos 8 caracteres"
+        if len(password) < 12:  # Aumentado a 12 caracteres mínimo
+            return False, "La contraseña debe tener al menos 12 caracteres"
         
         if not any(c.isupper() for c in password):
             return False, "La contraseña debe contener al menos una letra mayúscula"
