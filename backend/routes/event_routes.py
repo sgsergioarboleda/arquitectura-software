@@ -4,6 +4,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from services.dependencies import get_mongodb, MongoDBService
+from Auth.auth_dependencies import require_auth, require_admin, require_user
 from schemas.event_schemas import (
     EventCreate, 
     EventUpdate, 
@@ -15,7 +16,8 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 @router.get("/", response_model=EventsListResponse)
 async def get_events(
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = require_auth()
 ):
     """
     Obtener todos los eventos del calendario
@@ -57,7 +59,8 @@ async def get_events(
 @router.post("/", response_model=EventResponse, status_code=201)
 async def create_event(
     event: EventCreate,
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = require_admin()
 ):
     """
     Crear un nuevo evento
@@ -115,7 +118,8 @@ async def create_event(
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(
     event_id: str,
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = require_auth()
 ):
     """
     Obtener un evento específico por ID
@@ -157,7 +161,8 @@ async def get_event(
 async def update_event(
     event_id: str,
     event_update: EventUpdate,
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = require_admin()
 ):
     """
     Actualizar un evento existente
@@ -231,7 +236,8 @@ async def update_event(
 @router.delete("/{event_id}")
 async def delete_event(
     event_id: str,
-    db: MongoDBService = Depends(get_mongodb)
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = require_admin()
 ):
     """
     Eliminar un evento

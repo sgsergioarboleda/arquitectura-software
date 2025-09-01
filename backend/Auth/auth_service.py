@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends
 from services.config_service import config_service
 from services.password_service import password_service
+import os
 
 class AuthService:
     """
@@ -15,10 +16,41 @@ class AuthService:
         self.failed_attempts = {}
         self.lockout_duration = 300  # 5 minutos
         self.max_attempts = 5
+        
+        # Cargar llaves RSA
+        self._load_rsa_keys()
+    
+    def _load_rsa_keys(self):
+        """
+        Carga las llaves RSA desde los archivos
+        """
+        try:
+            print("🔑 Cargando llaves RSA...")
+            
+            # Cargar llave privada
+            private_key_path = os.path.join("keys", "private.pem")
+            print(f"📁 Ruta de llave privada: {os.path.abspath(private_key_path)}")
+            with open(private_key_path, "r") as f:
+                self.private_key = f.read()
+            print("✅ Llave privada cargada")
+            
+            # Cargar llave pública
+            public_key_path = os.path.join("keys", "public.pem")
+            print(f"📁 Ruta de llave pública: {os.path.abspath(public_key_path)}")
+            with open(public_key_path, "r") as f:
+                self.public_key = f.read()
+            print("✅ Llave pública cargada")
+                
+        except FileNotFoundError as e:
+            print(f"❌ Error: No se pudieron cargar las llaves RSA: {str(e)}")
+            raise Exception(f"No se pudieron cargar las llaves RSA: {str(e)}")
+        except Exception as e:
+            print(f"❌ Error al cargar las llaves RSA: {str(e)}")
+            raise Exception(f"Error al cargar las llaves RSA: {str(e)}")
     
     def create_access_token(self, data: Dict[str, Any]) -> str:
         """
-        Crea un token JWT de acceso
+        Crea un token JWT de acceso usando llave privada RSA
         
         Args:
             data: Datos a incluir en el payload del token
@@ -28,22 +60,51 @@ class AuthService:
         """
         to_encode = data.copy()
         
-        # Agregar tiempo de expiración
-        expire = datetime.utcnow() + timedelta(minutes=self.jwt_config["expiration_minutes"])
+        # Agregar tiempo de expiración usando zona horaria de Bogotá (UTC-5)
+        bogota_tz = timezone(timedelta(hours=-5))
+        expire = datetime.now(bogota_tz) + timedelta(minutes=self.jwt_config["expiration_minutes"])
         to_encode.update({"exp": expire})
         
-        # Generar token
+        # Generar token usando llave privada RSA
         encoded_jwt = jwt.encode(
             to_encode, 
-            self.jwt_config["secret"], 
-            algorithm=self.jwt_config["algorithm"]
+            self.private_key, 
+            algorithm="RS256"
+        )
+        
+        return encoded_jwt
+    
+    def create_access_token_with_duration(self, data: Dict[str, Any], duration_minutes: int) -> str:
+        """
+        Crea un token JWT de acceso con duración personalizada usando llave privada RSA
+        
+        Args:
+            data: Datos a incluir en el payload del token
+            duration_minutes: Duración del token en minutos
+            
+        Returns:
+            str: Token JWT generado
+        """
+        to_encode = data.copy()
+        
+        # Agregar tiempo de expiración con duración personalizada usando zona horaria de Bogotá (UTC-5)
+        bogota_tz = timezone(timedelta(hours=-5))
+        expire = datetime.now(bogota_tz) + timedelta(minutes=duration_minutes)
+        print(f"🕐 Token generado con expiración: {expire} (Zona horaria: Bogotá UTC-5)")
+        to_encode.update({"exp": expire})
+        
+        # Generar token usando llave privada RSA
+        encoded_jwt = jwt.encode(
+            to_encode, 
+            self.private_key, 
+            algorithm="RS256"
         )
         
         return encoded_jwt
     
     def verify_token(self, token: str) -> Dict[str, Any]:
         """
-        Verifica y decodifica un token JWT
+        Verifica y decodifica un token JWT usando llave pública RSA
         
         Args:
             token: Token JWT a verificar
@@ -57,8 +118,8 @@ class AuthService:
         try:
             payload = jwt.decode(
                 token, 
-                self.jwt_config["secret"], 
-                algorithms=[self.jwt_config["algorithm"]]
+                self.public_key, 
+                algorithms=["RS256"]
             )
             
             # Verificar que el token no haya expirado
@@ -188,11 +249,14 @@ class AuthService:
         Args:
             correo: Correo electrónico del usuario
         """
+        bogota_tz = timezone(timedelta(hours=-5))
+        current_time = datetime.now(bogota_tz)
+        
         if correo in self.failed_attempts:
             self.failed_attempts[correo]["count"] += 1
-            self.failed_attempts[correo]["last_attempt"] = datetime.utcnow()
+            self.failed_attempts[correo]["last_attempt"] = current_time
         else:
-            self.failed_attempts[correo] = {"count": 1, "last_attempt": datetime.utcnow()}
+            self.failed_attempts[correo] = {"count": 1, "last_attempt": current_time}
     
     def _is_account_locked(self, correo: str) -> bool:
         """
@@ -209,8 +273,10 @@ class AuthService:
         
         attempts = self.failed_attempts[correo]
         if attempts["count"] >= self.max_attempts:
-            # Verificar si ha pasado el tiempo de bloqueo
-            if (datetime.utcnow() - attempts["last_attempt"]).total_seconds() < self.lockout_duration:
+            # Verificar si ha pasado el tiempo de bloqueo usando zona horaria de Bogotá
+            bogota_tz = timezone(timedelta(hours=-5))
+            current_time = datetime.now(bogota_tz)
+            if (current_time - attempts["last_attempt"]).total_seconds() < self.lockout_duration:
                 return True
             else:
                 # Reiniciar contador después del período de bloqueo

@@ -12,12 +12,7 @@ class LoginResponse(BaseModel):
     """
     Esquema para la respuesta de login
     """
-    access_token: str
-    token_type: str = "bearer"
-    user_id: str
-    correo: str
-    nombre: str
-    tipo: str
+    token: str
 
 class LogoutResponse(BaseModel):
     """

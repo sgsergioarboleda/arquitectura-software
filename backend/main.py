@@ -1,4 +1,5 @@
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,11 +26,39 @@ from routes.storage_routes import router as storage_router
 from routes.event_routes import router as event_router
 from routes.lost_routes import router as lost_router
 
-# Crear instancia de FastAPI
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan events para manejar el ciclo de vida de la aplicación
+    """
+    # Startup
+    print("🔄 Iniciando conexión a MongoDB Atlas...")
+    if mongo_service.connect():
+        print("✅ Conexión exitosa a MongoDB Atlas")
+    else:
+        print("❌ Error al conectar a MongoDB Atlas")
+    
+    if not config_service.validate_configuration():
+        print("❌ Error en la configuración. Revisa las variables de entorno.")
+        exit(1)
+    
+    print(f"🚀 Iniciando API en {config_service.app_host}:{config_service.app_port}")
+    print(f"🌍 Debug: {config_service.app_debug}")
+    
+    yield
+    
+    # Shutdown
+    print("🔄 Cerrando conexiones...")
+    if mongo_service.is_connected():
+        mongo_service.close()
+        print("✅ Conexiones cerradas")
+
+# Crear instancia de FastAPI con lifespan
 app = FastAPI(
     title="API de Universidad",
     description="API CRUD completa para gestión de usuarios, eventos y objetos perdidos con MongoDB",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Configurar CORS para permitir conexión con el frontend
@@ -70,7 +99,7 @@ app.include_router(lost_router)
 
 # Los schemas de usuario están ahora en users/schemas/user_schemas.py
 
-# Endpoint de salud
+# Endpoint de salud (público)
 @app.get("/health")
 async def health_check():
     try:
@@ -100,9 +129,43 @@ async def health_check():
             status_code=500,
             content={
                 "status": "error",
-                "message": f"Error en health check: {str(e)}"
+                "message": f"Error interno: {str(e)}",
+                "mongodb_connected": False,
+                "timestamp": datetime.now().isoformat()
             }
         )
+
+# Endpoint de información de la API (público)
+@app.get("/")
+async def api_info():
+    """
+    Endpoint público que proporciona información básica de la API
+    """
+    return {
+        "name": "API de Universidad",
+        "version": "1.0.0",
+        "description": "API CRUD completa para gestión de usuarios, eventos y objetos perdidos",
+        "endpoints": {
+            "public": [
+                "GET / - Información de la API",
+                "GET /health - Estado de salud del sistema",
+                "POST /auth/login - Iniciar sesión"
+            ],
+            "protected": [
+                "GET /events - Listar eventos",
+                "GET /lost - Listar objetos perdidos",
+                "GET /storage/* - Gestión de archivos"
+            ],
+            "admin_only": [
+                "POST /events - Crear eventos",
+                "PUT /events/{id} - Actualizar eventos",
+                "DELETE /events/{id} - Eliminar eventos",
+                "DELETE /lost/{id} - Eliminar objetos perdidos"
+            ]
+        },
+        "authentication": "JWT con RSA256",
+        "documentation": "/docs"
+    }
 
 # Endpoint de debug para MongoDB
 @app.get("/debug/mongodb")
@@ -232,7 +295,7 @@ async def create_user(
     """Crear un nuevo usuario en la base de datos"""
     try:
         # Verificar permisos
-        if current_user["tipo"] != "admin":
+        if current_user["tipo"].lower() != "admin":
             raise HTTPException(
                 status_code=403, 
                 detail="No tienes permisos para crear usuarios"
@@ -370,7 +433,7 @@ async def delete_all_users(
     Eliminar todos los usuarios (solo para administradores)
     """
     
-    if current_user["tipo"] != "admin":
+    if current_user["tipo"].lower() != "admin":
         raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
     
     try:
@@ -447,7 +510,7 @@ async def update_user(
     Actualizar un usuario existente
     """
     
-    if current_user["tipo"] != "admin":
+    if current_user["tipo"].lower() != "admin":
         raise HTTPException(status_code=403, detail="No tienes permisos para editar usuarios")
     
     try:
@@ -533,7 +596,7 @@ async def delete_user(
     db: MongoDBService = Depends(get_mongodb),
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["tipo"] != "admin":
+    if current_user["tipo"].lower() != "admin":
         raise HTTPException(status_code=403, detail="No tienes permisos para eliminar usuarios")
     
     try:
@@ -575,32 +638,15 @@ async def root():
         "version": "1.0.0"
     }
 
-@app.on_event("startup")
-async def startup_event():
-    """Inicializa conexiones y servicios al arrancar la aplicación"""
-    print("🔄 Iniciando conexión a MongoDB Atlas...")
-    if mongo_service.connect():
-        print("✅ Conexión exitosa a MongoDB Atlas")
-    else:
-        print("❌ Error al conectar a MongoDB Atlas")
-    
-    if not config_service.validate_configuration():
-        print("❌ Error en la configuración. Revisa las variables de entorno.")
-        exit(1)
-    
-    print(f"🚀 Iniciando API en {config_service.app_host}:{config_service.app_port}")
-    print(f"🌍 Debug: {config_service.app_debug}")
-
 
 def main():
-    
     print(f"🚀 Iniciando servidor")
-    # Ejecutar servidor
+    # Ejecutar servidor usando la configuración del servicio
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
+        host=config_service.app_host,
+        port=config_service.app_port,
+        reload=config_service.app_debug,
         log_level="info"
     )
 

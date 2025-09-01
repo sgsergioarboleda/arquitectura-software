@@ -1,10 +1,49 @@
 import type { User } from "../types";
 import { api } from "./axios";
 
-export async function login(email: string, password: string) {
-  const { data } = await api.post("/auth/login", { email, password });
-  // Esperado: { access_token, token_type: "bearer", user }
-  localStorage.setItem("access_token", data.access_token);
-  localStorage.setItem("user", JSON.stringify(data.user));
-  return data.user as User;
+interface LoginResponse {
+  token: string;
+}
+
+export async function login(correo: string, contraseña: string): Promise<User> {
+  const { data } = await api.post<LoginResponse>("/auth/login", { 
+    correo, 
+    contraseña 
+  });
+  
+  // Decodificar el token para obtener información del usuario
+  const tokenPayload = JSON.parse(atob(data.token.split('.')[1]));
+  
+  const user: User = {
+    _id: tokenPayload.user_id,
+    email: tokenPayload.correo,
+    role: tokenPayload.tipo,
+  };
+
+  // Guardar token y usuario
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(user));
+  
+  return user;
+}
+
+export function logout(): void {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+}
+
+export function getCurrentUser(): User | null {
+  const userStr = localStorage.getItem("user");
+  if (userStr) {
+    try {
+      return JSON.parse(userStr);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function isAuthenticated(): boolean {
+  return localStorage.getItem("token") !== null;
 }

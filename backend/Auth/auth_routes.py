@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 from Auth.auth_service import auth_service
 from Auth.auth_schemas import LoginRequest, LoginResponse, LogoutResponse
+from Auth.auth_dependencies import require_auth
 from services.mongodb_service import MongoDBService
 from services.dependencies import get_mongodb
 
@@ -14,14 +15,14 @@ async def login(
     mongo_service: MongoDBService = Depends(get_mongodb)
 ):
     """
-    Endpoint para autenticar usuario y generar token JWT
+    Endpoint para autenticar usuario y generar token JWT con 15 minutos de duración
     
     Args:
         login_data: Datos de login (correo y contraseña)
         mongo_service: Servicio de MongoDB
         
     Returns:
-        LoginResponse: Token JWT y datos del usuario
+        LoginResponse: Token JWT con 15 minutos de duración
         
     Raises:
         HTTPException: Si las credenciales son inválidas
@@ -40,23 +41,17 @@ async def login(
                 detail="Credenciales inválidas"
             )
         
-        # Crear token JWT con el ID del usuario
+        # Crear token JWT con el ID del usuario y 15 minutos de duración
         token_data = {
             "user_id": str(usuario["_id"]),
             "correo": usuario["correo"],
             "tipo": usuario["tipo"]
         }
         
-        access_token = auth_service.create_access_token(token_data)
+        # Generar token con 15 minutos de duración
+        access_token = auth_service.create_access_token_with_duration(token_data, 15)
         
-        return LoginResponse(
-            access_token=access_token,
-            token_type="bearer",
-            user_id=str(usuario["_id"]),
-            correo=usuario["correo"],
-            nombre=usuario["nombre"],
-            tipo=usuario["tipo"]
-        )
+        return LoginResponse(token=access_token)
         
     except HTTPException:
         raise
@@ -80,19 +75,22 @@ async def logout():
 
 @auth_router.get("/verify")
 async def verify_token(
-    current_user: dict = Depends(auth_service.get_current_user_id)
+    current_user: dict = require_auth()
 ):
     """
     Endpoint para verificar la validez de un token
     
     Args:
-        current_user: ID del usuario autenticado (obtenido del token)
+        current_user: Usuario autenticado (obtenido del token)
         
     Returns:
         dict: Información del token verificado
     """
     return {
         "valid": True,
-        "user_id": current_user,
+        "user_id": str(current_user["_id"]),
+        "correo": current_user["correo"],
+        "nombre": current_user["nombre"],
+        "tipo": current_user["tipo"],
         "message": "Token válido"
     }

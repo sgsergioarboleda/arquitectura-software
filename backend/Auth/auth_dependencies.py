@@ -32,11 +32,16 @@ async def get_current_user(
         HTTPException: Si el token es inválido o el usuario no existe
     """
     try:
+        print(f"🔐 Verificando token: {credentials.credentials[:20]}...")
+        
         # Verificar token
         payload = auth_service.verify_token(credentials.credentials)
+        print(f"📋 Payload del token: {payload}")
+        
         user_id = payload.get("user_id")
         
         if not user_id:
+            print("❌ Token no contiene user_id")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token no contiene ID de usuario"

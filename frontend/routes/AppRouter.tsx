@@ -3,17 +3,42 @@ import Layout from "../components/Layout";
 import Login from "../pages/Login";
 import LostAndFound from "../pages/LostAndFound";
 import Calendar from "../pages/Calendar";
-// Cuando el backend esté, puedes envolver /objetos-perdidos con ProtectedRoute
+import ProtectedRoute from "../components/ProtectedRoute";
+import { useAuthContext } from "../contexts/AuthContext";
+
+function HomePage() {
+  const { isAuthenticated } = useAuthContext();
+  
+  if (isAuthenticated) {
+    return <Navigate to="/objetos-perdidos" replace />;
+  }
+  
+  return <Navigate to="/login" replace />;
+}
 
 export default function AppRouter() {
   return (
     <Layout>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/objetos-perdidos" element={<LostAndFound />} />
-        <Route path="/calendario" element={<Calendar />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route 
+          path="/objetos-perdidos" 
+          element={
+            <ProtectedRoute>
+              <LostAndFound />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/calendario" 
+          element={
+            <ProtectedRoute>
+              <Calendar />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/" element={<HomePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
   );

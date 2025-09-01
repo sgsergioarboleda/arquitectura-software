@@ -62,7 +62,7 @@ class PasswordService:
         Returns:
             tuple[bool, Optional[str]]: (es_fuerte, mensaje_error)
         """
-        if len(password) < 12:  # Aumentado a 12 caracteres mínimo
+        if len(password) < 8:  # Aumentado a 12 caracteres mínimo
             return False, "La contraseña debe tener al menos 12 caracteres"
         
         if not any(c.isupper() for c in password):

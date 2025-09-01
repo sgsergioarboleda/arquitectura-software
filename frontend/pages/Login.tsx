@@ -1,12 +1,13 @@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { login } from "../api/auth";
+import { useAuthContext } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 const schema = z.object({
-  email: z.string().email("Correo inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
+  correo: z.string().email("Correo inválido"),
+  contraseña: z.string().min(6, "Mínimo 6 caracteres"),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -14,13 +15,16 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema) });
   const navigate = useNavigate();
+  const { login } = useAuthContext();
+  const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (data: FormData) => {
     try {
-      await login(data.email, data.password);
+      setError(null);
+      await login(data.correo, data.contraseña);
       navigate("/objetos-perdidos");
-    } catch {
-      alert("Credenciales inválidas o servidor no disponible");
+    } catch (err) {
+      setError("Credenciales inválidas o servidor no disponible");
     }
   };
 
@@ -43,14 +47,20 @@ export default function Login() {
         <h1 className="text-2xl font-semibold">Iniciar sesión</h1>
         <p className="text-sm text-gray-600">Usa tu correo institucional.</p>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm mb-1">Correo</label>
           <input
             className="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-            {...register("email")}
+            {...register("correo")}
             placeholder="tu@sergio.edu"
           />
-          {errors.email && <p className="text-red-600 text-sm">{errors.email.message}</p>}
+          {errors.correo && <p className="text-red-600 text-sm">{errors.correo.message}</p>}
         </div>
 
         <div>
@@ -58,9 +68,9 @@ export default function Login() {
           <input
             type="password"
             className="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-            {...register("password")}
+            {...register("contraseña")}
           />
-          {errors.password && <p className="text-red-600 text-sm">{errors.password.message}</p>}
+          {errors.contraseña && <p className="text-red-600 text-sm">{errors.contraseña.message}</p>}
         </div>
 
         <button

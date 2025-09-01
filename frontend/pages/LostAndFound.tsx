@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { listLost, claimLostItem } from "../api/lost";
 import FileDropzone from "../components/FileDropzone";
 import type { LostItem } from "../types";
+import { useAuthContext } from "../contexts/AuthContext";
 
 export default function LostAndFound() {
   const [items, setItems] = useState<LostItem[]>([]);
@@ -11,34 +12,54 @@ export default function LostAndFound() {
   const [evidences, setEvidences] = useState<File[]>([]);
   const [notes, setNotes] = useState("");
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { authenticatedRequest } = useAuthContext();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   useEffect(() => {
     setLoading(true);
-    listLost(q)
+    setError(null);
+    
+    // Usar el hook de autenticación para hacer la petición
+    authenticatedRequest<LostItem[]>('GET', '/lost')
       .then((data) => {
         setItems(data);
       })
       .catch((error) => {
         console.error("Error al cargar objetos perdidos:", error);
+        setError("Error al cargar los objetos perdidos");
         setItems([]);
       })
       .finally(() => setLoading(false));
-  }, [q]);
+  }, [q, authenticatedRequest]);
 
   const filtered = useMemo(() => items, [items]);
 
   const submitClaim = async () => {
     if (!selected) return;
     if (evidences.length === 0) return alert("Adjunta al menos una evidencia.");
+    
     setSending(true);
+    setError(null);
+    
     try {
-      await claimLostItem(selected._id, evidences, notes);
+      // Crear FormData para enviar archivos
+      const formData = new FormData();
+      formData.append('notes', notes);
+      evidences.forEach((file) => {
+        formData.append('evidences', file);
+      });
+
+      await authenticatedRequest('POST', `/lost/${selected._id}/claim`, formData);
       alert("Reclamo enviado.");
-      setSelected(null); setEvidences([]); setNotes("");
-    } catch {
-      alert("No se pudo enviar el reclamo. ¿Sesión iniciada?");
-    } finally { setSending(false); }
+      setSelected(null); 
+      setEvidences([]); 
+      setNotes("");
+    } catch (err: any) {
+      setError(err.message || "No se pudo enviar el reclamo");
+    } finally { 
+      setSending(false); 
+    }
   };
 
   return (
@@ -57,6 +78,12 @@ export default function LostAndFound() {
           />
         </div>
       </div>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
