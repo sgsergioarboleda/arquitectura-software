@@ -90,8 +90,6 @@ class ConfigService:
         Obtiene la configuración de JWT
         """
         return {
-            "secret": self.jwt_secret,
-            "algorithm": self.jwt_algorithm,
             "expiration_minutes": self.jwt_expiration
         }
     
