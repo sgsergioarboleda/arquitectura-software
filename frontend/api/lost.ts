@@ -3,7 +3,11 @@ import { api } from "./axios";
 
 export async function listLost(q?: string) {
   const { data } = await api.get("/lost", { params: { q } });
-  return (data.items ?? []) as LostItem[];
+  if (Array.isArray(data) && data.length > 0) {
+    console.log("Campos del primer elemento:", Object.keys(data[0]));
+  }
+  
+  return (data ?? []) as LostItem[];
 }
 
 export async function claimLostItem(id: string, files: File[], notes: string) {

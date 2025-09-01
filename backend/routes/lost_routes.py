@@ -51,10 +51,14 @@ async def list_lost_items(
         
         # Obtener objetos perdidos
         items = db.find_all("lost_items", filter_query=filter_query, limit=100)
-        
         # Convertir a formato de respuesta
         items_response = []
         for item in items:
+            # Verificar que el item tiene _id
+            if "_id" not in item:
+                print(f"DEBUG: Item sin _id encontrado: {item}")
+                continue
+                
             items_response.append(
                 LostItemResponse(
                     _id=str(item["_id"]),

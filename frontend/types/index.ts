@@ -10,6 +10,10 @@ export type LostItem = {
   title: string;
   found_location: string;
   status: "available" | "claimed" | "returned";
+  description?: string;
+  contact_info?: string;
+  created_at: string;
+  updated_at?: string;
 };
 
 export type UniEvent = {

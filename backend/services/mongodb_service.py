@@ -57,7 +57,7 @@ class MongoDBService:
         """
         Obtiene una colección específica
         """
-        if not self.database:
+        if self.database is None:
             return None
         return self.database[collection_name]
 
@@ -67,7 +67,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return []
             query = filter_query if filter_query else {}
             cursor = collection.find(query)
@@ -84,7 +84,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return None
             return collection.find_one(filter_query)
         except Exception as e:
@@ -97,7 +97,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection or not ObjectId.is_valid(document_id):
+            if collection is None or not ObjectId.is_valid(document_id):
                 return None
             return collection.find_one({"_id": ObjectId(document_id)})
         except Exception as e:
@@ -116,7 +116,7 @@ class MongoDBService:
                 
             # Buscar documento
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 self.logger.error(f"Colección no encontrada: {collection_name}")
                 return None
                 
@@ -137,7 +137,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return 0
             query = filter_query if filter_query else {}
             return collection.count_documents(query)
@@ -151,7 +151,7 @@ class MongoDBService:
         """
         try:
             collection = self.get_collection(collection_name)
-            if not collection:
+            if collection is None:
                 return []
             return list(collection.aggregate(pipeline))
         except Exception as e:

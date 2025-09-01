@@ -15,7 +15,15 @@ export default function LostAndFound() {
 
   useEffect(() => {
     setLoading(true);
-    listLost(q).then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
+    listLost(q)
+      .then((data) => {
+        setItems(data);
+      })
+      .catch((error) => {
+        console.error("Error al cargar objetos perdidos:", error);
+        setItems([]);
+      })
+      .finally(() => setLoading(false));
   }, [q]);
 
   const filtered = useMemo(() => items, [items]);
@@ -62,15 +70,28 @@ export default function LostAndFound() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((it) => (
-            <div key={it._id} className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          {filtered.map((it, index) => (
+            <div key={it._id || index} className="bg-white rounded-2xl border shadow-sm overflow-hidden">
               <div className="h-40 bg-gray-100">
-                <img
-                  src={`${apiUrl}/lost/${it._id}/image`}
-                  alt={it.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = "https://via.placeholder.com/640x360?text=Sin+imagen"; }}
-                />
+                {it._id ? (
+                  <img
+                    src={`${apiUrl}/lost/${it._id}/image`}
+                    alt={it.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { 
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      (e.currentTarget.parentElement as HTMLElement).innerHTML = `
+                        <div class="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm">
+                          Sin imagen
+                        </div>
+                      `;
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm">
+                    Sin imagen
+                  </div>
+                )}
               </div>
               <div className="p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -86,7 +107,7 @@ export default function LostAndFound() {
                 <p className="text-sm text-gray-600 mt-1">{it.found_location}</p>
                 <button
                   className="mt-3 w-full rounded-lg px-3 py-2 bg-gray-900 text-white disabled:opacity-50 hover:bg-black transition"
-                  disabled={it.status !== "available"}
+                  disabled={it.status !== "available" || !it._id}
                   onClick={() => setSelected(it)}
                 >
                   Reclamar
