@@ -16,52 +16,246 @@ Automatizar diversas tareas de la Universidad Sergio Arboleda con el fin de mejo
 * Canal informativo estudiantil relacionado al conocimiento de becas estudiantiles a las que los estudiantes pueden acceder, asi como conocer sus requerimientos y condiciones.
 * Crear un portal web donde se integren los anteriores proyectos.
 
-# Tecnologias a usar:
+# Sistema de Gestión Universitaria
 
-* MongoDB 
-* ReactJs
-* Python con fastapi
-* Python con librerias de modelos de IA
-* Nube con AWS
-* Servicio SageMaker (Por ver)
+Sistema completo de gestión universitaria con frontend React/TypeScript y backend FastAPI/MongoDB.
 
-# Sistema de Autenticación JWT
+## Características
 
-El proyecto incluye un sistema completo de autenticación basado en JWT (JSON Web Tokens) que protege todos los endpoints de la API.
+### Frontend (React + TypeScript)
+- **React 18** con TypeScript
+- **Vite** como bundler
+- **Tailwind CSS** para estilos
+- **React Router** para navegación
+- **Axios** para llamadas a la API
+- **FullCalendar** para calendario de eventos
+- **React Hook Form** con validación Zod
 
-## Características de Seguridad
+### Backend (FastAPI + MongoDB)
+- **FastAPI** framework web moderno
+- **MongoDB** base de datos NoSQL
+- **JWT** autenticación
+- **CORS** configurado para frontend
+- **Rate Limiting** protección
+- **Pydantic** validación de datos
 
-- **Autenticación**: Login con correo y contraseña
-- **Autorización**: Tokens JWT para acceso a endpoints protegidos
-- **Protección**: Todos los endpoints de usuarios requieren autenticación
-- **Verificación**: Validación automática de tokens en cada petición
+## Funcionalidades
 
-## Endpoints de Autenticación
+### 📅 Calendario de Eventos
+- Ver eventos universitarios
+- Crear, editar y eliminar eventos
+- Vista de calendario interactiva
 
-- `POST /auth/login` - Autenticar usuario y obtener token
-- `POST /auth/logout` - Cerrar sesión
-- `GET /auth/verify` - Verificar validez de token
+### 🔍 Objetos Perdidos
+- Listar objetos perdidos
+- Búsqueda por título o ubicación
+- Reclamar objetos con evidencias
+- Subir imágenes de objetos
 
-## Configuración
+### 👥 Gestión de Usuarios
+- Registro e inicio de sesión
+- Roles de usuario (estudiante/admin)
+- CRUD completo de usuarios
 
-Configura la clave secreta en las variables de entorno:
+## Instalación y Configuración
 
+### Prerrequisitos
+- Node.js 18+ y npm
+- Python 3.8+
+- MongoDB Atlas (gratuito)
+
+### 1. Clonar el repositorio
 ```bash
-SECRET_PHRASE=tu-clave-super-secreta-aqui
-JWT_EXPIRATION_MINUTES=30
+git clone <repository-url>
+cd taller-crud
 ```
 
-Para más detalles, consulta [Auth/README.md](Auth/README.md).
+### 2. Configurar Backend
 
-# Resultados a esperar
-Para la creacion del portal web se usará un frontend construido por *ReactJS*, y un backend con fastapi. El portal tendrá control de acceso (IAM), con keycloack. Donde se tendra diferentes roles de usuario, todavia por definir.
+```bash
+cd backend
 
-Para el proyecto de generacion Automatizada de horarios para profesores y estudiantes por IA, se realizara un proceso de ML supervisado, el procedimiento y metodologia aun esta por definirse.
-Las variables a tomar en cuenta relacionada a este proyecta, salones, profesores, carga academica de cada profesor, cantidad de creditos por estudiantes, preferencia horario tanto para estudiante como profesor, cantidad de horas semanales por materia.
+# Instalar dependencias
+pip install -r requirements.txt
 
-Para automatizar la gestion de entrega y recuperacion de objetos perdidos, se planea crear un portal web donde se pueda registrar tanto la foto del objeto, como la persona quien lo entrego (con posibilidad de ser anonima), y donde se encontro.
+# Configurar variables de entorno
+cp env.example .env
+# Editar .env con tus credenciales de MongoDB
 
-Para los horarios de eventos y actividades universitarias, se planea un portal centralizado, de diferentes administradores, con la posibilidad de crear eventos y publicarlos en el portal, asi como conocer su ubicacion, y saber que otros eventos ocurren en la misma franja horaria.
+# Probar conexión a MongoDB
+python test_connection.py
 
-En el caso del canal informativo de becas estudiantiles, se planea una pagina informativa, con la capacidad de editarse segun el perfil de administrador, para conocer las becas, sus requerimientos y sus condiciones para aplicar, siendo completamente abierta a los estudiantes para conocer diferentes opciones de becas.
+# Poblar base de datos con datos de ejemplo
+python scripts/populate_db.py
+
+# Ejecutar servidor
+python run.py
+```
+
+El backend estará disponible en `http://localhost:8000`
+
+### 3. Configurar Frontend
+
+```bash
+cd frontend
+
+# Instalar dependencias
+npm install
+
+# Configurar variables de entorno (opcional)
+# Crear .env.local si necesitas cambiar la URL del backend
+
+# Ejecutar servidor de desarrollo
+npm run dev
+```
+
+El frontend estará disponible en `http://localhost:5173`
+
+## Variables de Entorno
+
+### Backend (.env)
+```env
+# MongoDB
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database
+MONGODB_DATABASE=universidad_db
+
+# JWT
+JWT_SECRET_KEY=tu_clave_secreta_muy_larga
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# App
+APP_HOST=0.0.0.0
+APP_PORT=8000
+APP_DEBUG=true
+```
+
+### Frontend (.env.local) - Opcional
+```env
+VITE_API_URL=http://localhost:8000
+```
+
+## Estructura del Proyecto
+
+```
+taller-crud/
+├── backend/                 # Backend FastAPI
+│   ├── main.py             # Punto de entrada
+│   ├── requirements.txt    # Dependencias Python
+│   ├── routes/            # Rutas de la API
+│   ├── services/          # Servicios de negocio
+│   ├── schemas/           # Esquemas Pydantic
+│   ├── auth/              # Autenticación
+│   └── scripts/           # Scripts de utilidad
+├── frontend/               # Frontend React
+│   ├── src/               # Código fuente
+│   ├── components/        # Componentes React
+│   ├── pages/            # Páginas de la aplicación
+│   ├── api/              # Cliente API
+│   └── types/            # Tipos TypeScript
+└── README.md             # Este archivo
+```
+
+## API Endpoints
+
+### Eventos
+- `GET /events` - Listar eventos
+- `POST /events` - Crear evento
+- `GET /events/{id}` - Obtener evento
+- `PUT /events/{id}` - Actualizar evento
+- `DELETE /events/{id}` - Eliminar evento
+
+### Objetos Perdidos
+- `GET /lost` - Listar objetos perdidos
+- `POST /lost` - Crear objeto perdido
+- `GET /lost/{id}` - Obtener objeto
+- `GET /lost/{id}/image` - Obtener imagen
+- `POST /lost/{id}/claim` - Reclamar objeto
+- `PUT /lost/{id}` - Actualizar objeto
+- `DELETE /lost/{id}` - Eliminar objeto
+
+### Usuarios
+- `GET /user/list` - Listar usuarios
+- `POST /users/create` - Crear usuario
+- `GET /user/{id}` - Obtener usuario
+- `PUT /user/{id}` - Actualizar usuario
+- `DELETE /user/{id}` - Eliminar usuario
+
+### Autenticación
+- `POST /auth/login` - Iniciar sesión
+- `POST /auth/register` - Registrarse
+- `POST /auth/refresh` - Renovar token
+
+## Documentación
+
+- **Backend API**: `http://localhost:8000/docs` (Swagger UI)
+- **Backend ReDoc**: `http://localhost:8000/redoc`
+
+## Desarrollo
+
+### Backend
+```bash
+cd backend
+python run.py  # Con recarga automática
+```
+
+### Frontend
+```bash
+cd frontend
+npm run dev    # Con recarga automática
+```
+
+### Scripts Útiles
+
+```bash
+# Probar conexión a MongoDB
+cd backend && python test_connection.py
+
+# Poblar base de datos
+cd backend && python scripts/populate_db.py
+
+# Construir frontend para producción
+cd frontend && npm run build
+```
+
+## Notas Importantes
+
+- La autenticación está temporalmente deshabilitada para facilitar las pruebas
+- El backend incluye CORS configurado para el frontend
+- Los archivos de imágenes se almacenan en `backend/uploads/`
+- El rate limiting está configurado para 100 requests por hora por IP
+
+## Tecnologías Utilizadas
+
+### Frontend
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router DOM
+- Axios
+- FullCalendar
+- React Hook Form
+- Zod
+
+### Backend
+- FastAPI
+- MongoDB (PyMongo)
+- JWT (python-jose)
+- Passlib (bcrypt)
+- Python-multipart
+- Python-dotenv
+- Uvicorn
+
+## Contribución
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
 

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from enum import Enum
 from typing import List, Dict, Tuple
-from auth.auth_service import auth_service
+from Auth.auth_service import auth_service
 from services.dependencies import get_mongodb
 from datetime import datetime, timedelta
 

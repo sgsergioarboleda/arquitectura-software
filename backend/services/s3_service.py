@@ -4,7 +4,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException
 from services.config_service import config_service
 import hashlib
-import magic
+import mimetypes
 
 class S3Service:
     def __init__(self):
@@ -21,8 +21,8 @@ class S3Service:
         # Validar integridad del archivo
         content_hash = hashlib.sha256(await file.read()).hexdigest()
         
-        # Verificar tipo MIME
-        content_type = magic.from_buffer(file.file.read(), mime=True)
+        # Verificar tipo MIME usando la extensión del archivo
+        content_type = mimetypes.guess_type(filename)[0]
         if not self._is_allowed_file_type(content_type):
             raise HTTPException(status_code=400, detail="Tipo de archivo no permitido")
 

@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -15,18 +16,29 @@ from services.rate_limiter import rate_limiter
 from users.schemas import UsuarioCreate, UsuarioUpdate, UsuarioResponse
 
 # Importar autenticación
-from auth.auth_routes import auth_router
-from auth.auth_dependencies import get_current_user, get_current_user_id, require_admin, require_user, UserRole
+from Auth.auth_routes import auth_router
+from Auth.auth_dependencies import get_current_user, get_current_user_id, require_admin, require_user, UserRole
 
 # Importar dependencias compartidas
 from services.dependencies import get_mongodb, mongo_service
 from routes.storage_routes import router as storage_router
+from routes.event_routes import router as event_router
+from routes.lost_routes import router as lost_router
 
 # Crear instancia de FastAPI
 app = FastAPI(
-    title="API de Usuarios",
-    description="API CRUD completa para gestión de usuarios con MongoDB",
+    title="API de Universidad",
+    description="API CRUD completa para gestión de usuarios, eventos y objetos perdidos con MongoDB",
     version="1.0.0"
+)
+
+# Configurar CORS para permitir conexión con el frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Frontend Vite
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Rate limiting middleware
@@ -51,6 +63,10 @@ async def rate_limit_middleware(request: Request, call_next):
 app.include_router(auth_router)
 # Include storage routes
 app.include_router(storage_router)
+# Include event routes
+app.include_router(event_router)
+# Include lost items routes
+app.include_router(lost_router)
 
 # Los schemas de usuario están ahora en users/schemas/user_schemas.py
 
@@ -575,12 +591,18 @@ async def startup_event():
     print(f"🚀 Iniciando API en {config_service.app_host}:{config_service.app_port}")
     print(f"🌍 Debug: {config_service.app_debug}")
 
-# Agregar al final del archivo
-if __name__ == "__main__":
-    import uvicorn
+
+def main():
+    
+    print(f"🚀 Iniciando servidor")
+    # Ejecutar servidor
     uvicorn.run(
         "main:app",
-        host=config_service.app_host,
-        port=config_service.app_port,
-        reload=config_service.app_debug
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
     )
+
+if __name__ == "__main__":
+    main()

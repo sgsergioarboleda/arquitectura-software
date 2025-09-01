@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
-from auth.auth_service import auth_service
-from auth.auth_schemas import LoginRequest, LoginResponse, LogoutResponse
+from Auth.auth_service import auth_service
+from Auth.auth_schemas import LoginRequest, LoginResponse, LogoutResponse
 from services.mongodb_service import MongoDBService
 from services.dependencies import get_mongodb
 

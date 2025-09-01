@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Depends
 from services.s3_service import s3_service
 from services.lambda_service import lambda_service
-from auth.auth_dependencies import require_user, require_admin
+from Auth.auth_dependencies import require_user, require_admin
 
 router = APIRouter(prefix="/storage", tags=["storage"])
 
