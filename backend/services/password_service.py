@@ -1,7 +1,7 @@
 from passlib.context import CryptContext
 from typing import Optional
 import hashlib
-import os
+from services.secret_manager import secret_manager
 
 class PasswordService:
     """
@@ -28,10 +28,9 @@ class PasswordService:
         Returns:
             str: Contraseña encriptada (hash)
         """
-        # Añadir sal adicional
-        pepper = os.getenv("PASSWORD_PEPPER", "default_pepper")
+        # Añadir sal adicional usando secret_manager
+        pepper = secret_manager.obtener_secret("PASSWORD_PEPPER") or "default_pepper"
         peppered_password = f"{password}{pepper}"
-        # Primero aplicar SHA512
         sha512_hash = hashlib.sha512(peppered_password.encode()).hexdigest()
         # Luego aplicar bcrypt
         return self.pwd_context.hash(sha512_hash)
@@ -48,7 +47,9 @@ class PasswordService:
             bool: True si la contraseña coincide, False en caso contrario
         """
         # Aplicar SHA512 antes de verificar con bcrypt
-        sha512_hash = hashlib.sha512(plain_password.encode()).hexdigest()
+        pepper = secret_manager.obtener_secret("PASSWORD_PEPPER") or "default_pepper"
+        peppered_password = f"{plain_password}{pepper}"
+        sha512_hash = hashlib.sha512(peppered_password.encode()).hexdigest()
         return self.pwd_context.verify(sha512_hash, hashed_password)
     
     def is_password_strong(self, password: str) -> tuple[bool, Optional[str]]:

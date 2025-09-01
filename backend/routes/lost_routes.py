@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 
 from services.dependencies import get_mongodb, MongoDBService
+from services.miniature_service import miniature_service
 from schemas.lost_item_schemas import (
     LostItemCreate,
     LostItemUpdate,
@@ -455,4 +456,57 @@ async def delete_lost_item(
         raise HTTPException(
             status_code=500,
             detail=f"Error interno del servidor: {str(e)}"
+        )
+
+@router.get("/{lost_item_id}/miniature")
+async def get_lost_item_miniature(lost_item_id: str):
+    """
+    Obtener la miniatura de un objeto perdido desde S3
+    """
+    try:
+        # Obtener URL de la miniatura desde S3
+        miniature_url = await miniature_service.get_miniature_url(lost_item_id)
+        
+        # Redirigir a la URL de S3
+        return RedirectResponse(url=miniature_url)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al obtener la miniatura: {str(e)}"
+        )
+
+@router.post("/{lost_item_id}/miniature")
+async def upload_lost_item_miniature(
+    lost_item_id: str,
+    image: UploadFile = File(...)
+):
+    """
+    Subir una miniatura para un objeto perdido
+    """
+    try:
+        # Verificar que el archivo es una imagen
+        if not image.content_type.startswith('image/'):
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo debe ser una imagen"
+            )
+        
+        # Subir miniatura usando el servicio
+        result = await miniature_service.upload_miniature(lost_item_id, image)
+        
+        return {
+            "message": "Miniatura subida exitosamente",
+            "item_id": lost_item_id,
+            "miniature_url": result["miniature_url"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al subir la miniatura: {str(e)}"
         )
