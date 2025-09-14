@@ -1,5 +1,16 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Literal
+
+class TipoUsuario:
+    """
+    Clase para definir los tipos de usuario válidos
+    Centraliza la definición de tipos para seguir el principio DRY
+    """
+    USUARIO = "usuario"
+    ADMIN = "admin"
+    
+    # Lista de todos los tipos válidos para usar en Literal
+    TIPOS_VALIDOS = Literal["usuario", "admin"]
 
 class UsuarioBase(BaseModel):
     """
@@ -9,7 +20,7 @@ class UsuarioBase(BaseModel):
     nombre: str
     correo: EmailStr
     contraseña: str
-    tipo: str = "usuario"  # Por defecto es usuario, puede ser "admin"
+    tipo: TipoUsuario.TIPOS_VALIDOS = TipoUsuario.USUARIO  # Solo puede ser "usuario" o "admin"
 
 class UsuarioCreate(UsuarioBase):
     """
@@ -26,7 +37,7 @@ class UsuarioUpdate(BaseModel):
     nombre: Optional[str] = None
     correo: Optional[EmailStr] = None
     contraseña: Optional[str] = None
-    tipo: Optional[str] = None
+    tipo: Optional[TipoUsuario.TIPOS_VALIDOS] = None
 
 class UsuarioResponse(BaseModel):
     """
@@ -36,7 +47,7 @@ class UsuarioResponse(BaseModel):
     id: str
     nombre: str
     correo: str
-    tipo: str
+    tipo: TipoUsuario.TIPOS_VALIDOS
     fecha_creacion: Optional[str] = None
     
     class Config:
