@@ -86,7 +86,6 @@
         }
     ],
     "cpu": "512",
-    "enableFaultInjection": false,
     "executionRoleArn": "arn:aws:iam::871403240096:role/arq-soft-api-ecs-role",
     "family": "arq-soft-api-task-def",
     "memory": "1024",
