@@ -1,1 +1,142 @@
-
+{
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "containerDefinitions": [
+        {
+            "cpu": 0,
+            "environment": [
+                {
+                    "name": "DATABASE_NAME",
+                    "value": "Usuarios"
+                },
+                {
+                    "name": "JWT_ALGORITHM",
+                    "value": "HS256"
+                },
+                {
+                    "name": "AWS_S3_BUCKET",
+                    "value": "arquitectura-software-s3-bucket"
+                },
+                {
+                    "name": "APP_HOST",
+                    "value": "0.0.0.0"
+                },
+                {
+                    "name": "MONGODB_URI",
+                    "value": "mongodb+srv://santiagocolombiahoy:IFXJ0lfuORtkAuRo@cluster.mongodb.net/database?retryWrites=true&w=majority"
+                },
+                {
+                    "name": "SECRET_PHRASE",
+                    "value": "House-Pile-Locate-Game-Wagon6-Gain-Himself"
+                },
+                {
+                    "name": "JWT_EXPIRATION_MINUTES",
+                    "value": "30"
+                },
+                {
+                    "name": "SECRET_PASSWORD_PEPPER",
+                    "value": "default-pepper"
+                },
+                {
+                    "name": "APP_PORT",
+                    "value": "8000"
+                },
+                {
+                    "name": "DEBUG",
+                    "value": "false"
+                },
+                {
+                    "name": "aws-region",
+                    "value": "us-east-1"
+                },
+                {
+                    "name": "LAMBDA_API_URL",
+                    "value": "https://your-lambda-function-url.amazonaws.com"
+                }
+            ],
+            "environmentFiles": [],
+            "essential": true,
+            "image": "871403240096.dkr.ecr.us-east-1.amazonaws.com/arq-software-api-ecr@sha256:ac8b6636152b5d4a7708feb164d66848d390733df34be1f6e309afab7a0a0753",
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/arq-soft-api-task-def",
+                    "awslogs-create-group": "true",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "mountPoints": [],
+            "name": "apicontainer",
+            "portMappings": [
+                {
+                    "appProtocol": "http",
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "name": "apicontainer-8000-tcp",
+                    "protocol": "tcp"
+                }
+            ],
+            "systemControls": [],
+            "ulimits": [],
+            "volumesFrom": []
+        }
+    ],
+    "cpu": "512",
+    "enableFaultInjection": false,
+    "executionRoleArn": "arn:aws:iam::871403240096:role/arq-soft-api-ecs-role",
+    "family": "arq-soft-api-task-def",
+    "memory": "1024",
+    "networkMode": "awsvpc",
+    "placementConstraints": [],
+    "registeredAt": "2025-09-14T02:04:25.930Z",
+    "registeredBy": "arn:aws:iam::871403240096:user/maesedev",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.21"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "ecs.capability.task-eni"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        }
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "revision": 1,
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "status": "ACTIVE",
+    "taskDefinitionArn": "arn:aws:ecs:us-east-1:871403240096:task-definition/arq-soft-api-task-def:1",
+    "taskRoleArn": "arn:aws:iam::871403240096:role/arq-soft-api-ecs-role",
+    "volumes": [],
+    "tags": []
+}
