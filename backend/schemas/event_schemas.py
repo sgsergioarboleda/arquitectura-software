@@ -3,14 +3,28 @@ from typing import Optional
 from datetime import datetime
 
 class EventCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
+    title: str = Field(
+        ...,
+        min_length=3,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]+$'
+    )
     start: datetime
     end: Optional[datetime] = None
-    location: Optional[str] = Field(None, max_length=200)
+    location: Optional[str] = Field(
+        None,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]*$'
+    )
     description: Optional[str] = Field(None, max_length=1000)
 
 class EventUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    title: Optional[str] = Field(
+        None,
+        min_length=3,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]+$'
+    )
     start: Optional[datetime] = None
     end: Optional[datetime] = None
     location: Optional[str] = Field(None, max_length=200)

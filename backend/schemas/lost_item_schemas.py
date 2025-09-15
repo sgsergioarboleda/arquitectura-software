@@ -3,14 +3,34 @@ from typing import Optional, List
 from datetime import datetime
 
 class LostItemCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    found_location: str = Field(..., min_length=1, max_length=200)
+    title: str = Field(
+        ...,
+        min_length=3,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]+$'
+    )
+    found_location: str = Field(
+        ...,
+        min_length=3,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]+$'
+    )
     description: Optional[str] = Field(None, max_length=1000)
     contact_info: Optional[str] = Field(None, max_length=200)
 
 class LostItemUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
-    found_location: Optional[str] = Field(None, min_length=1, max_length=200)
+    title: Optional[str] = Field(
+        None,
+        min_length=3,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]+$'
+    )
+    found_location: Optional[str] = Field(
+        None,
+        min_length=3,
+        max_length=200,
+        regex=r'^[A-Za-z0-9\sÁÉÍÓÚÑáéíóúñ]+$'
+    )
     status: Optional[str] = Field(None, pattern="^(available|claimed|returned)$")
     description: Optional[str] = Field(None, max_length=1000)
     contact_info: Optional[str] = Field(None, max_length=200)

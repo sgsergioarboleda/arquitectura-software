@@ -6,6 +6,7 @@ from bson import ObjectId
 import os
 import shutil
 from pathlib import Path
+import re  # <‑ añadido para escapar la búsqueda
 
 from services.dependencies import get_mongodb, MongoDBService
 from services.miniature_service import miniature_service
@@ -27,12 +28,13 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/", response_model=List[LostItemResponse])
 async def list_lost_items(
-    q: Optional[str] = Query(None, description="Término de búsqueda"),
+    q: Optional[str] = Query(None, description="Término de búsqueda", max_length=50),
     db: MongoDBService = Depends(get_mongodb),
     current_user: dict = require_auth()
 ):
     """
-    Obtener lista de objetos perdidos con búsqueda opcional
+    Obtener lista de objetos perdidos con búsqueda opcional.
+    Se limita la búsqueda a 50 caracteres y se escapan los caracteres especiales para evitar inyección en regex.
     """
     try:
         if not db.is_connected():
@@ -44,11 +46,12 @@ async def list_lost_items(
         # Construir filtro de búsqueda
         filter_query = {}
         if q:
-            # Búsqueda por título o ubicación
+            # Limpiar espacios y escapar caracteres especiales para regex
+            search_term = re.escape(q.strip())
             filter_query = {
                 "$or": [
-                    {"title": {"$regex": q, "$options": "i"}},
-                    {"found_location": {"$regex": q, "$options": "i"}}
+                    {"title": {"$regex": search_term, "$options": "i"}},
+                    {"found_location": {"$regex": search_term, "$options": "i"}}
                 ]
             }
         
