@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from schemas.event_schemas import EventCreate, EventUpdate, EventResponse
 
 class EventService:
