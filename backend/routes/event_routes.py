@@ -11,8 +11,12 @@ from schemas.event_schemas import (
     EventResponse, 
     EventsListResponse
 )
+from services.event_service import EventService
 
 router = APIRouter(prefix="/events", tags=["events"])
+
+# Simulación de base de datos en memoria
+events_db = []
 
 @router.get("/", response_model=EventsListResponse)
 async def get_events(
@@ -279,3 +283,29 @@ async def delete_event(
             status_code=500,
             detail=f"Error interno del servidor: {str(e)}"
         )
+
+@router.post("/events", response_model=EventResponse)
+def create_event(event_data: EventCreate):
+    try:
+        event = EventService.create_event(event_data)
+        events_db.append(event)
+        return event
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/events/{event_id}", response_model=EventResponse)
+def update_event(event_id: str, update_data: EventUpdate):
+    event = next((e for e in events_db if e._id == event_id), None)
+    if not event:
+        raise HTTPException(status_code=404, detail="Evento no encontrado")
+    try:
+        updated_event = EventService.update_event(event, update_data)
+        events_db[events_db.index(event)] = updated_event
+        return updated_event
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/events", response_model=EventsListResponse)
+def get_events(date: datetime):
+    filtered_events = EventService.filter_events_by_date(events_db, date)
+    return EventsListResponse(events=filtered_events)
