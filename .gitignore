@@ -139,6 +139,10 @@ temp/
 *.sln
 *.sw?
 
+# Keys
+*.pem
+*.key
+
 # Database
 *.db
 *.sqlite
