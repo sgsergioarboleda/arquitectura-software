@@ -2,6 +2,10 @@ import os
 from typing import List
 from dotenv import load_dotenv
 import logging
+from pathlib import Path
+
+# Load .env file
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 class ConfigService:
     """
@@ -33,7 +37,7 @@ class ConfigService:
         
         # MongoDB Configuration
         self.mongodb_uri = os.getenv("MONGODB_URI")
-        self.mongodb_database = os.getenv("DATABASE_NAME")
+        self.mongodb_database = os.getenv("MONGODB_DATABASE")
         
         # JWT Configuration
         self.jwt_secret = os.getenv("SECRET_PHRASE")

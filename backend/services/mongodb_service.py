@@ -23,6 +23,7 @@ class MongoDBService:
         self.database_name = database_name
         self.client: Optional[MongoClient] = None
         self.database: Optional[Database] = None
+        self._connected = False
         self.logger = logging.getLogger(__name__)
 
     def connect(self) -> bool:
@@ -30,20 +31,25 @@ class MongoDBService:
         Establece conexión con MongoDB usando ServerApi
         """
         try:
+            if not self.uri or not self.database_name:
+                raise ValueError("MongoDB URI or database name not provided")
+            
+            self.logger.info(f"Conectando a la base de datos: {self.database_name}")
             self.client = MongoClient(
                 self.uri,
                 server_api=ServerApi('1'),
                 serverSelectionTimeoutMS=5000  # 5 segundos de timeout
             )
+            self.database = self.client[self.database_name]
+            
             # Prueba la conexión
             self.client.admin.command('ping')
-            self.database = self.client[self.database_name]
+            self._connected = True
             self.logger.info("Conexión a MongoDB Atlas exitosa")
             return True
         except Exception as e:
-            self.logger.error(f"Error de conexión a MongoDB Atlas: {str(e)}")
-            self.client = None
-            self.database = None
+            self.logger.error(f"Error de conexión a MongoDB Atlas: {e}")
+            self._connected = False
             return False
 
     def disconnect(self):
@@ -52,13 +58,15 @@ class MongoDBService:
             self.client.close()
             self.client = None
             self.database = None
+            self._connected = False
 
     def get_collection(self, collection_name: str) -> Optional[Collection]:
         """
         Obtiene una colección específica
         """
-        if self.database is None:
-            return None
+        if not self.is_connected():
+            if not self.connect():
+                return None
         return self.database[collection_name]
 
     def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0) -> List[Dict[str, Any]]:
@@ -166,7 +174,7 @@ class MongoDBService:
         """
         Verifica si la conexión está activa
         """
-        return self.client is not None and self.database is not None
+        return self._connected
 
     def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Búsqueda segura por email con sanitización"""

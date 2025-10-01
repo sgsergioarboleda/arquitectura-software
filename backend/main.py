@@ -633,7 +633,7 @@ async def delete_user(
         )
 
 # Cargar configuración global
-config = config_service.load_config()
+config = config_service._load_configuration()
 
 # Cargar plugins dinámicamente
 def load_plugins(app: FastAPI, config: dict):
