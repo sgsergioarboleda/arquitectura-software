@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+import importlib
+import os
 
 # Importar servicios
 from services.config_service import config_service
@@ -629,6 +631,25 @@ async def delete_user(
             status_code=500,
             detail=f"Error interno del servidor: {str(e)}"
         )
+
+# Cargar configuración global
+config = config_service.load_config()
+
+# Cargar plugins dinámicamente
+def load_plugins(app: FastAPI, config: dict):
+    plugins_dir = "backend/plugins"
+    for filename in os.listdir(plugins_dir):
+        if filename.endswith("_plugin.py"):
+            module_name = f"plugins.{filename[:-3]}"
+            module = importlib.import_module(module_name)
+            plugin_class = getattr(module, "Plugin")
+            plugin_instance = plugin_class()
+            plugin_instance.initialize(config)
+            plugin_instance.register_routes(app)
+
+@app.on_event("startup")
+async def startup_event():
+    load_plugins(app, config)
 
 @app.get("/")
 async def root():
