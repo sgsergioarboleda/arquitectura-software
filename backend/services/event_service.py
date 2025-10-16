@@ -86,13 +86,30 @@ class EventService:
     @staticmethod
     def _convert_to_response(event) -> EventResponse:
         """Convertir un documento de MongoDB a EventResponse."""
+        # Convertir datetime a string ISO si es necesario
+        start = event["start"]
+        if isinstance(start, datetime):
+            start = start.isoformat()
+        
+        end = event.get("end")
+        if end and isinstance(end, datetime):
+            end = end.isoformat()
+        
+        created_at = event.get("created_at", "")
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
+        
+        updated_at = event.get("updated_at")
+        if updated_at and isinstance(updated_at, datetime):
+            updated_at = updated_at.isoformat()
+        
         return EventResponse(
-            _id=str(event["_id"]),
+            id=str(event["_id"]),
             title=event["title"],
-            start=event["start"],
-            end=event.get("end"),
+            start=start,
+            end=end,
             location=event.get("location"),
             description=event.get("description"),
-            created_at=event.get("created_at", ""),
-            updated_at=event.get("updated_at")
+            created_at=created_at,
+            updated_at=updated_at
         )

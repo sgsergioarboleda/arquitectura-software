@@ -63,7 +63,7 @@ async def list_lost_items(
                 
             items_response.append(
                 LostItemResponse(
-                    _id=str(item["_id"]),
+                    id=str(item["_id"]),
                     title=item["title"],
                     found_location=item["found_location"],
                     status=item.get("status", "available"),
@@ -123,7 +123,7 @@ async def create_lost_item(
             )
         
         return LostItemResponse(
-            _id=str(created_item["_id"]),
+            id=str(created_item["_id"]),
             title=created_item["title"],
             found_location=created_item["found_location"],
             status=created_item.get("status", "available"),
@@ -164,7 +164,7 @@ async def get_lost_item(
             )
         
         return LostItemResponse(
-            _id=str(item["_id"]),
+            id=str(item["_id"]),
             title=item["title"],
             found_location=item["found_location"],
             status=item.get("status", "available"),
@@ -389,7 +389,7 @@ async def update_lost_item(
         updated_item = db.find_by_id("lost_items", item_id)
         
         return LostItemResponse(
-            _id=str(updated_item["_id"]),
+            id=str(updated_item["_id"]),
             title=updated_item["title"],
             found_location=updated_item["found_location"],
             status=updated_item.get("status", "available"),

@@ -46,11 +46,21 @@ export default function Calendar() {
     // Usar makeRequest que funciona con o sin autenticación
     makeRequest<any[]>('GET', '/events')
       .then((events) => {
-        // El backend devuelve un array directamente, mapear _id a id para FullCalendar
-        setEvents(events.map(e => ({ 
-          ...e, 
-          id: e._id // FullCalendar necesita 'id', el backend devuelve '_id'
-        })));
+        // El backend devuelve un array directamente, mapear para FullCalendar
+        const mappedEvents = events.map(e => ({ 
+          id: e._id, // FullCalendar necesita 'id', el backend devuelve '_id'
+          title: e.title,
+          start: e.start,
+          end: e.end,
+          extendedProps: {
+            _id: e._id, // Preservar _id en extendedProps para uso posterior
+            location: e.location,
+            description: e.description,
+            created_at: e.created_at,
+            updated_at: e.updated_at
+          }
+        }));
+        setEvents(mappedEvents);
       })
       .catch((err) => {
         console.error("Error al cargar eventos:", err);
@@ -114,12 +124,13 @@ export default function Calendar() {
   const handleEditClick = (event: any) => {
     // Normalizar el evento - puede venir de FullCalendar o de la lista
     const normalizedEvent = {
-      id: event.id || event._id,
+      id: event.id,
+      _id: event.extendedProps?._id || event.id, // Usar _id de extendedProps primero
       title: event.title,
       start: event.start,
       end: event.end,
-      location: event.location || event.extendedProps?.location,
-      description: event.description || event.extendedProps?.description,
+      location: event.extendedProps?.location,
+      description: event.extendedProps?.description,
     };
     
     setSelectedEvent(normalizedEvent);
@@ -167,7 +178,10 @@ export default function Calendar() {
     setError(null);
 
     try {
-      await makeRequest('PUT', `/events/${selectedEvent.id}`, {
+      // Usar _id o id, lo que esté disponible
+      const eventId = selectedEvent._id || selectedEvent.id;
+      
+      await makeRequest('PUT', `/events/${eventId}`, {
         title: title,
         start: new Date(start).toISOString(),
         end: editFormData.end && editFormData.end.trim() ? new Date(editFormData.end).toISOString() : undefined,
@@ -293,13 +307,23 @@ export default function Calendar() {
                       minute: '2-digit'
                     })}
                   </p>
-                  {event.location && (
-                    <p className="text-sm text-gray-500">📍 {event.location}</p>
+                  {event.extendedProps?.location && (
+                    <p className="text-sm text-gray-500">📍 {event.extendedProps.location}</p>
                   )}
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleEditClick(event)}
+                    onClick={() => {
+                      // Crear un evento simulado compatible con FullCalendar
+                      const fcEvent = {
+                        id: event.id,
+                        title: event.title,
+                        start: event.start,
+                        end: event.end,
+                        extendedProps: event.extendedProps
+                      };
+                      handleEditClick(fcEvent);
+                    }}
                     className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
                     ✏️ Editar
