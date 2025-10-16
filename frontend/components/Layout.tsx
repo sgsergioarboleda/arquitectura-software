@@ -42,11 +42,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             Universidad Sergio Arboleda 
           </Link>
           <nav className="flex items-center gap-1">
-            {isAuthenticated ? (
-              <>
-                <NavLink to="/objetos-perdidos">Objetos perdidos</NavLink>
-                <NavLink to="/calendario">Calendario</NavLink>
-                <div className="flex items-center gap-2 ml-4 pl-4 border-l">
+            <NavLink to="/objetos-perdidos">Objetos perdidos</NavLink>
+            <NavLink to="/calendario">Calendario</NavLink>
+            {isAuthenticated && user?.role === 'admin' && (
+              <NavLink to="/admin">Administración</NavLink>
+            )}
+            <div className="flex items-center gap-2 ml-4 pl-4 border-l">
+              {isAuthenticated ? (
+                <>
                   <span className="text-sm text-gray-600">
                     {user?.email}
                   </span>
@@ -56,11 +59,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   >
                     Cerrar sesión
                   </button>
-                </div>
-              </>
-            ) : (
-              <NavLink to="/login">Iniciar sesión</NavLink>
-            )}
+                </>
+              ) : (
+                <NavLink to="/login">Iniciar sesión</NavLink>
+              )}
+            </div>
           </nav>
         </div>
       </header>

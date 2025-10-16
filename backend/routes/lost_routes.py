@@ -28,8 +28,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 @router.get("/", response_model=List[LostItemResponse])
 async def list_lost_items(
     q: Optional[str] = Query(None, description="Término de búsqueda"),
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    db: MongoDBService = Depends(get_mongodb)
 ):
     """
     Obtener lista de objetos perdidos con búsqueda opcional
@@ -64,7 +63,7 @@ async def list_lost_items(
                 
             items_response.append(
                 LostItemResponse(
-                    _id=str(item["_id"]),
+                    id=str(item["_id"]),
                     title=item["title"],
                     found_location=item["found_location"],
                     status=item.get("status", "available"),
@@ -83,14 +82,14 @@ async def list_lost_items(
             detail=f"Error interno del servidor: {str(e)}"
         )
 
-@router.post("/", response_model=LostItemResponse, status_code=201)
+@router.post("/create", response_model=LostItemResponse, status_code=201)
 async def create_lost_item(
     item: LostItemCreate,
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    current_user: dict = Depends(require_admin)
 ):
     """
-    Crear un nuevo objeto perdido
+    Crear un nuevo objeto perdido (solo administradores)
     """
     try:
         if not db.is_connected():
@@ -124,7 +123,7 @@ async def create_lost_item(
             )
         
         return LostItemResponse(
-            _id=str(created_item["_id"]),
+            id=str(created_item["_id"]),
             title=created_item["title"],
             found_location=created_item["found_location"],
             status=created_item.get("status", "available"),
@@ -145,8 +144,7 @@ async def create_lost_item(
 @router.get("/{item_id}", response_model=LostItemResponse)
 async def get_lost_item(
     item_id: str,
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    db: MongoDBService = Depends(get_mongodb)
 ):
     """
     Obtener un objeto perdido específico por ID
@@ -166,7 +164,7 @@ async def get_lost_item(
             )
         
         return LostItemResponse(
-            _id=str(item["_id"]),
+            id=str(item["_id"]),
             title=item["title"],
             found_location=item["found_location"],
             status=item.get("status", "available"),
@@ -187,8 +185,7 @@ async def get_lost_item(
 @router.get("/{item_id}/image")
 async def get_lost_item_image(
     item_id: str,
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    db: MongoDBService = Depends(get_mongodb)
 ):
     """
     Obtener imagen de un objeto perdido
@@ -392,7 +389,7 @@ async def update_lost_item(
         updated_item = db.find_by_id("lost_items", item_id)
         
         return LostItemResponse(
-            _id=str(updated_item["_id"]),
+            id=str(updated_item["_id"]),
             title=updated_item["title"],
             found_location=updated_item["found_location"],
             status=updated_item.get("status", "available"),
@@ -468,8 +465,7 @@ async def delete_lost_item(
 
 @router.get("/{lost_item_id}/miniature")
 async def get_lost_item_miniature(
-    lost_item_id: str,
-    current_user: dict = require_auth()
+    lost_item_id: str
 ):
     """
     Obtener la miniatura de un objeto perdido desde S3

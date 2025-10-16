@@ -135,10 +135,42 @@ export function useAuth() {
     }
   }, [authState.token, logout]);
 
+  // Función para hacer peticiones con o sin autenticación
+  const makeRequest = useCallback(async <T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    url: string,
+    data?: any
+  ): Promise<T> => {
+    try {
+      const headers: any = {};
+      
+      // Si hay token, agregarlo a los headers
+      if (authState.token) {
+        headers.Authorization = `Bearer ${authState.token}`;
+      }
+
+      const response = await api.request<T>({
+        method,
+        url,
+        data,
+        headers,
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 401 && authState.token) {
+        // Token expirado o inválido solo si teníamos token
+        logout();
+        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      }
+      throw error;
+    }
+  }, [authState.token, logout]);
+
   return {
     ...authState,
     login,
     logout,
     authenticatedRequest,
+    makeRequest,
   };
 }

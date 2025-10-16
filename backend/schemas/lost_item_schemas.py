@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -16,7 +16,9 @@ class LostItemUpdate(BaseModel):
     contact_info: Optional[str] = Field(None, max_length=200)
 
 class LostItemResponse(BaseModel):
-    _id: str
+    model_config = ConfigDict(populate_by_name=True)
+    
+    id: str = Field(serialization_alias="_id")
     title: str
     found_location: str
     status: str  # "available", "claimed", "returned"

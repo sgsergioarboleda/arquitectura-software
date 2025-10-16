@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -17,7 +17,9 @@ class EventUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
 
 class EventResponse(BaseModel):
-    _id: str
+    model_config = ConfigDict(populate_by_name=True)
+    
+    id: str = Field(serialization_alias="_id")
     title: str
     start: str  # ISO string
     end: Optional[str] = None  # ISO string

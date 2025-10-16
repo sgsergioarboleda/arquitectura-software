@@ -19,3 +19,13 @@ export async function claimLostItem(id: string, files: File[], notes: string) {
   });
   return data;
 }
+
+export async function createLostItem(itemData: {
+  title: string;
+  found_location: string;
+  description?: string;
+  contact_info?: string;
+}) {
+  const { data } = await api.post("/lost/create", itemData);
+  return data as LostItem;
+}

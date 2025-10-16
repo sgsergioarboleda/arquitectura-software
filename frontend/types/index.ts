@@ -2,7 +2,7 @@
 export type User = {
   _id: string;
   email: string;
-  role: "student" | "admin";
+  role: "usuario" | "admin";
 };
 
 export type LostItem = {

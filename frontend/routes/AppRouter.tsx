@@ -3,17 +3,12 @@ import Layout from "../components/Layout";
 import Login from "../pages/Login";
 import LostAndFound from "../pages/LostAndFound";
 import Calendar from "../pages/Calendar";
-import ProtectedRoute from "../components/ProtectedRoute";
-import { useAuthContext } from "../contexts/AuthContext";
+import AdminDashboard from "../pages/AdminDashboard";
+import AdminRoute from "../components/AdminRoute";
 
 function HomePage() {
-  const { isAuthenticated } = useAuthContext();
-  
-  if (isAuthenticated) {
-    return <Navigate to="/objetos-perdidos" replace />;
-  }
-  
-  return <Navigate to="/login" replace />;
+  // Redirigir directamente a objetos perdidos
+  return <Navigate to="/objetos-perdidos" replace />;
 }
 
 export default function AppRouter() {
@@ -21,20 +16,16 @@ export default function AppRouter() {
     <Layout>
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* Rutas públicas - accesibles sin autenticación */}
+        <Route path="/objetos-perdidos" element={<LostAndFound />} />
+        <Route path="/calendario" element={<Calendar />} />
+        {/* Ruta protegida solo para administradores */}
         <Route 
-          path="/objetos-perdidos" 
+          path="/admin" 
           element={
-            <ProtectedRoute>
-              <LostAndFound />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/calendario" 
-          element={
-            <ProtectedRoute>
-              <Calendar />
-            </ProtectedRoute>
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
           } 
         />
         <Route path="/" element={<HomePage />} />
