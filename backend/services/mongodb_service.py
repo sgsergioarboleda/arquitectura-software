@@ -69,9 +69,15 @@ class MongoDBService:
                 return None
         return self.database[collection_name]
 
-    def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0) -> List[Dict[str, Any]]:
+    def find_all(self, collection_name: str, filter_query: Dict = None, limit: int = 0, skip: int = 0) -> List[Dict[str, Any]]:
         """
         Busca todos los documentos en una colección
+        
+        Args:
+            collection_name: Nombre de la colección
+            filter_query: Query de filtrado (opcional)
+            limit: Límite de documentos a retornar (0 = sin límite)
+            skip: Número de documentos a saltar para paginación (0 = no saltar)
         """
         try:
             collection = self.get_collection(collection_name)
@@ -79,6 +85,8 @@ class MongoDBService:
                 return []
             query = filter_query if filter_query else {}
             cursor = collection.find(query)
+            if skip > 0:
+                cursor = cursor.skip(skip)
             if limit > 0:
                 cursor = cursor.limit(limit)
             return list(cursor)

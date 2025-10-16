@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import Login from "../pages/Login";
 import LostAndFound from "../pages/LostAndFound";
 import Calendar from "../pages/Calendar";
+import AdminDashboard from "../pages/AdminDashboard";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { useAuthContext } from "../contexts/AuthContext";
 
@@ -34,6 +35,14 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <Calendar />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           } 
         />

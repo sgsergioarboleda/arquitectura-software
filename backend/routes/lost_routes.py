@@ -83,7 +83,7 @@ async def list_lost_items(
             detail=f"Error interno del servidor: {str(e)}"
         )
 
-@router.post("/", response_model=LostItemResponse, status_code=201)
+@router.post("/create", response_model=LostItemResponse, status_code=201)
 async def create_lost_item(
     item: LostItemCreate,
     db: MongoDBService = Depends(get_mongodb),

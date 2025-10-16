@@ -27,6 +27,7 @@ from services.dependencies import get_mongodb, mongo_service
 from routes.storage_routes import router as storage_router
 from routes.event_routes import router as event_router
 from routes.lost_routes import router as lost_router
+from routes.user_routes import router as user_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -66,7 +67,7 @@ app = FastAPI(
 # Configurar CORS para permitir conexión con el frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Frontend Vite
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:3000", "http://localhost:3000"],  # Frontend Vite
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -98,6 +99,8 @@ app.include_router(storage_router)
 app.include_router(event_router)
 # Include lost items routes
 app.include_router(lost_router)
+# Include user management routes (admin only)
+app.include_router(user_router)
 
 # Los schemas de usuario están ahora en users/schemas/user_schemas.py
 
@@ -168,122 +171,6 @@ async def api_info():
         "authentication": "JWT con RSA256",
         "documentation": "/docs"
     }
-
-# Endpoint de debug para MongoDB
-@app.get("/debug/mongodb")
-async def debug_mongodb(db: MongoDBService = Depends(get_mongodb)):
-    try:
-        # Verificar conexión
-        is_connected = db.is_connected()
-        
-        if not is_connected:
-            return {
-                "status": "error",
-                "message": "No hay conexión a MongoDB",
-                "connection": False,
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        # Formatear usuarios para mostrar
-        usuarios_formateados = []
-        for usuario in usuarios_ejemplo:
-            usuarios_formateados.append({
-                "id": str(usuario["_id"]),
-                "nombre": usuario.get("nombre", "N/A"),
-                "correo": usuario.get("correo", "N/A"),
-                "tipo": usuario.get("tipo", "N/A")
-            })
-        
-        return {
-            "status": "success",
-            "message": "Conexión a MongoDB exitosa",
-            "connection": True,
-            "database": db.database_name,
-            "total_usuarios": total_usuarios,
-            "usuarios_ejemplo": usuarios_formateados,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Error en debug: {str(e)}",
-            "connection": False,
-            "timestamp": datetime.now().isoformat()
-        }
-
-# Endpoint de debug para probar búsqueda por ID
-@app.get("/debug/user/{user_id}")
-async def debug_user_by_id(user_id: str, db: MongoDBService = Depends(get_mongodb)):
-    """
-    Endpoint de debug para probar la búsqueda de un usuario por ID
-    """
-    try:
-        print(f"🔍 DEBUG: Buscando usuario con ID: {user_id}")
-        
-        # Validar formato del ID
-        is_valid = db.is_valid_object_id(user_id)
-        print(f"🔍 DEBUG: ID válido: {is_valid}")
-        
-        if not is_valid:
-            return {
-                "status": "error",
-                "message": f"ID inválido: '{user_id}' no es un ObjectId válido",
-                "id_provided": user_id,
-                "is_valid_object_id": False,
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        # Verificar conexión
-        if not db.is_connected():
-            return {
-                "status": "error",
-                "message": "No hay conexión a MongoDB",
-                "id_provided": user_id,
-                "is_valid_object_id": True,
-                "connection": False,
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        # Buscar usuario
-        usuario = db.find_by_id_with_validation("usuarios", user_id)
-        
-        if not usuario:
-            return {
-                "status": "not_found",
-                "message": f"Usuario no encontrado con ID: {user_id}",
-                "id_provided": user_id,
-                "is_valid_object_id": True,
-                "connection": True,
-                "usuario_encontrado": False,
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        return {
-            "status": "success",
-            "message": f"Usuario encontrado con ID: {user_id}",
-            "id_provided": user_id,
-            "is_valid_object_id": True,
-            "connection": True,
-            "usuario_encontrado": True,
-            "usuario": {
-                "id": str(usuario["_id"]),
-                "nombre": usuario.get("nombre", "N/A"),
-                "correo": usuario.get("correo", "N/A"),
-                "tipo": usuario.get("tipo", "N/A"),
-                "fecha_creacion": usuario.get("fecha_creacion", "N/A")
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        print(f"❌ DEBUG: Error en debug_user_by_id: {str(e)}")
-        return {
-            "status": "error",
-            "message": f"Error interno: {str(e)}",
-            "id_provided": user_id,
-            "timestamp": datetime.now().isoformat()
-        }
 
 # ===== RUTAS ESPECÍFICAS (DEBEN IR ANTES QUE LAS RUTAS CON PARÁMETROS) =====
 

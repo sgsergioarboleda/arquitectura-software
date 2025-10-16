@@ -46,6 +46,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <NavLink to="/objetos-perdidos">Objetos perdidos</NavLink>
                 <NavLink to="/calendario">Calendario</NavLink>
+                {user?.role === 'admin' && (
+                  <NavLink to="/admin">Administración</NavLink>
+                )}
                 <div className="flex items-center gap-2 ml-4 pl-4 border-l">
                   <span className="text-sm text-gray-600">
                     {user?.email}
