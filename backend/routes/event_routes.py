@@ -36,14 +36,29 @@ async def get_event(event_id: str, db: MongoDBService = Depends(get_mongodb)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{event_id}", response_model=EventResponse)
-async def update_event(event_id: str, event_update: EventUpdate, db: MongoDBService = Depends(get_mongodb)):
+async def update_event(
+    event_id: str, 
+    event_update: EventUpdate, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Actualizar un evento existente (solo administradores)
+    """
     try:
         return EventService.update_event(event_id, event_update, db)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/{event_id}")
-async def delete_event(event_id: str, db: MongoDBService = Depends(get_mongodb)):
+async def delete_event(
+    event_id: str, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Eliminar un evento (solo administradores)
+    """
     try:
         return EventService.delete_event(event_id, db)
     except ValueError as e:
