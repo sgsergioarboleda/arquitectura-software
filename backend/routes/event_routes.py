@@ -15,7 +15,14 @@ async def get_events(db: MongoDBService = Depends(get_mongodb)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=EventResponse, status_code=201)
-async def create_event(event: EventCreate, db: MongoDBService = Depends(get_mongodb)):
+async def create_event(
+    event: EventCreate, 
+    db: MongoDBService = Depends(get_mongodb),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Crear un nuevo evento (solo administradores)
+    """
     try:
         return EventService.create_event(event, db)
     except ValueError as e:

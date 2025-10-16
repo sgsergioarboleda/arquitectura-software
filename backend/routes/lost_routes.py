@@ -86,10 +86,10 @@ async def list_lost_items(
 async def create_lost_item(
     item: LostItemCreate,
     db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    current_user: dict = Depends(require_admin)
 ):
     """
-    Crear un nuevo objeto perdido
+    Crear un nuevo objeto perdido (solo administradores)
     """
     try:
         if not db.is_connected():

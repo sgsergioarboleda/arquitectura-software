@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listLost, claimLostItem } from "../api/lost";
+import { listLost, claimLostItem, createLostItem } from "../api/lost";
 import FileDropzone from "../components/FileDropzone";
 import type { LostItem } from "../types";
 import { useAuthContext } from "../contexts/AuthContext";
@@ -13,10 +13,22 @@ export default function LostAndFound() {
   const [notes, setNotes] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { makeRequest, isAuthenticated } = useAuthContext();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const { makeRequest, isAuthenticated, user } = useAuthContext();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  
+  // Estado del formulario de creación
+  const [createFormData, setCreateFormData] = useState({
+    title: "",
+    found_location: "",
+    description: "",
+    contact_info: "",
+  });
 
-  useEffect(() => {
+  const isAdmin = isAuthenticated && user?.role?.toLowerCase() === "admin";
+
+  const loadItems = () => {
     setLoading(true);
     setError(null);
     
@@ -31,6 +43,10 @@ export default function LostAndFound() {
         setItems([]);
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadItems();
   }, [q, makeRequest]);
 
   const filtered = useMemo(() => items, [items]);
@@ -69,6 +85,51 @@ export default function LostAndFound() {
     }
   };
 
+  const handleCreateItem = async () => {
+    // Validar y limpiar los campos
+    const title = createFormData.title?.trim();
+    const foundLocation = createFormData.found_location?.trim();
+
+    console.log("Validando formulario:", { title, foundLocation, createFormData });
+
+    if (!title || title === "") {
+      alert("Por favor completa el título del objeto");
+      return;
+    }
+
+    if (!foundLocation || foundLocation === "") {
+      alert("Por favor completa el lugar donde se encontró");
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      await makeRequest('POST', '/lost/create', {
+        title: title,
+        found_location: foundLocation,
+        description: createFormData.description?.trim() || undefined,
+        contact_info: createFormData.contact_info?.trim() || undefined,
+      });
+      
+      alert("Objeto perdido creado exitosamente");
+      setShowCreateModal(false);
+      setCreateFormData({
+        title: "",
+        found_location: "",
+        description: "",
+        contact_info: "",
+      });
+      loadItems();
+    } catch (err: any) {
+      console.error("Error al crear objeto perdido:", err);
+      setError(err.response?.data?.detail || "Error al crear el objeto perdido");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div>
       <div className="mb-5 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
@@ -76,13 +137,23 @@ export default function LostAndFound() {
           <h1 className="text-2xl font-semibold">Objetos perdidos</h1>
           <p className="text-gray-600 text-sm">Busca y reclama tus pertenencias de forma segura.</p>
         </div>
-        <div className="sm:ml-auto w-full sm:w-80">
-          <input
-            className="w-full border rounded-xl p-2.5 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-            placeholder="Buscar por título o lugar…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+        <div className="sm:ml-auto flex gap-3 w-full sm:w-auto">
+          <div className="flex-1 sm:flex-initial sm:w-80">
+            <input
+              className="w-full border rounded-xl p-2.5 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+              placeholder="Buscar por título o lugar…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="rounded-lg px-4 py-2 bg-gray-900 text-white hover:bg-black transition whitespace-nowrap"
+            >
+              + Añadir Objeto
+            </button>
+          )}
         </div>
       </div>
 
@@ -161,7 +232,7 @@ export default function LostAndFound() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal de Reclamo */}
       {selected && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl border shadow-xl w-full max-w-lg p-6">
@@ -206,6 +277,91 @@ export default function LostAndFound() {
                 onClick={submitClaim}
               >
                 {sending ? "Enviando..." : "Enviar reclamo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Crear Objeto Perdido */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl border shadow-xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Añadir Objeto Perdido</h2>
+              <button 
+                onClick={() => setShowCreateModal(false)} 
+                className="text-gray-500 hover:text-gray-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm mb-1">Título *</label>
+                <input
+                  type="text"
+                  value={createFormData.title}
+                  onChange={(e) => setCreateFormData({...createFormData, title: e.target.value})}
+                  className="w-full border rounded-xl p-2.5 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  placeholder="Nombre del objeto"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Lugar donde se encontró *</label>
+                <input
+                  type="text"
+                  value={createFormData.found_location}
+                  onChange={(e) => setCreateFormData({...createFormData, found_location: e.target.value})}
+                  className="w-full border rounded-xl p-2.5 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  placeholder="Ej: Biblioteca, Cafetería, Salón 301"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Descripción</label>
+                <textarea
+                  value={createFormData.description}
+                  onChange={(e) => setCreateFormData({...createFormData, description: e.target.value})}
+                  className="w-full border rounded-xl p-2.5 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  rows={3}
+                  placeholder="Descripción detallada del objeto"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Información de contacto</label>
+                <input
+                  type="text"
+                  value={createFormData.contact_info}
+                  onChange={(e) => setCreateFormData({...createFormData, contact_info: e.target.value})}
+                  className="w-full border rounded-xl p-2.5 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  placeholder="Email o teléfono de contacto"
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex gap-2 justify-end">
+              <button 
+                className="border rounded-lg px-4 py-2 hover:bg-gray-50" 
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-lg px-4 py-2 bg-gray-900 text-white hover:bg-black disabled:opacity-50"
+                disabled={creating}
+                onClick={handleCreateItem}
+              >
+                {creating ? "Creando..." : "Crear Objeto"}
               </button>
             </div>
           </div>
