@@ -13,15 +13,15 @@ export default function LostAndFound() {
   const [notes, setNotes] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { authenticatedRequest } = useAuthContext();
+  const { makeRequest, isAuthenticated } = useAuthContext();
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   useEffect(() => {
     setLoading(true);
     setError(null);
     
-    // Usar el hook de autenticación para hacer la petición
-    authenticatedRequest<LostItem[]>('GET', '/lost')
+    // Usar makeRequest que funciona con o sin autenticación
+    makeRequest<LostItem[]>('GET', '/lost')
       .then((data) => {
         setItems(data);
       })
@@ -31,12 +31,19 @@ export default function LostAndFound() {
         setItems([]);
       })
       .finally(() => setLoading(false));
-  }, [q, authenticatedRequest]);
+  }, [q, makeRequest]);
 
   const filtered = useMemo(() => items, [items]);
 
   const submitClaim = async () => {
     if (!selected) return;
+    
+    // Verificar autenticación
+    if (!isAuthenticated) {
+      alert("Debes iniciar sesión para reclamar un objeto.");
+      return;
+    }
+    
     if (evidences.length === 0) return alert("Adjunta al menos una evidencia.");
     
     setSending(true);
@@ -50,7 +57,7 @@ export default function LostAndFound() {
         formData.append('evidences', file);
       });
 
-      await authenticatedRequest('POST', `/lost/${selected._id}/claim`, formData);
+      await makeRequest('POST', `/lost/${selected._id}/claim`, formData);
       alert("Reclamo enviado.");
       setSelected(null); 
       setEvidences([]); 
@@ -132,13 +139,22 @@ export default function LostAndFound() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-600 mt-1">{it.found_location}</p>
-                <button
-                  className="mt-3 w-full rounded-lg px-3 py-2 bg-gray-900 text-white disabled:opacity-50 hover:bg-black transition"
-                  disabled={it.status !== "available" || !it._id}
-                  onClick={() => setSelected(it)}
-                >
-                  Reclamar
-                </button>
+                {isAuthenticated ? (
+                  <button
+                    className="mt-3 w-full rounded-lg px-3 py-2 bg-gray-900 text-white disabled:opacity-50 hover:bg-black transition"
+                    disabled={it.status !== "available" || !it._id}
+                    onClick={() => setSelected(it)}
+                  >
+                    Reclamar
+                  </button>
+                ) : (
+                  <button
+                    className="mt-3 w-full rounded-lg px-3 py-2 bg-gray-600 text-white hover:bg-gray-700 transition"
+                    onClick={() => window.location.href = '/login'}
+                  >
+                    Iniciar sesión para reclamar
+                  </button>
+                )}
               </div>
             </div>
           ))}

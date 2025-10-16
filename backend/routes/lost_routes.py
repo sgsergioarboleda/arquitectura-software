@@ -28,8 +28,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 @router.get("/", response_model=List[LostItemResponse])
 async def list_lost_items(
     q: Optional[str] = Query(None, description="Término de búsqueda"),
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    db: MongoDBService = Depends(get_mongodb)
 ):
     """
     Obtener lista de objetos perdidos con búsqueda opcional
@@ -145,8 +144,7 @@ async def create_lost_item(
 @router.get("/{item_id}", response_model=LostItemResponse)
 async def get_lost_item(
     item_id: str,
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    db: MongoDBService = Depends(get_mongodb)
 ):
     """
     Obtener un objeto perdido específico por ID
@@ -187,8 +185,7 @@ async def get_lost_item(
 @router.get("/{item_id}/image")
 async def get_lost_item_image(
     item_id: str,
-    db: MongoDBService = Depends(get_mongodb),
-    current_user: dict = require_auth()
+    db: MongoDBService = Depends(get_mongodb)
 ):
     """
     Obtener imagen de un objeto perdido
@@ -468,8 +465,7 @@ async def delete_lost_item(
 
 @router.get("/{lost_item_id}/miniature")
 async def get_lost_item_miniature(
-    lost_item_id: str,
-    current_user: dict = require_auth()
+    lost_item_id: str
 ):
     """
     Obtener la miniatura de un objeto perdido desde S3

@@ -11,14 +11,16 @@ export default function Calendar() {
   const [events, setEvents] = useState<EventInput[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { authenticatedRequest } = useAuthContext();
+  const { makeRequest } = useAuthContext();
 
   useEffect(() => {
     setLoading(true);
     setError(null);
     
-    authenticatedRequest<{ events: any[] }>('GET', '/events')
-      .then(({ events }) => {
+    // Usar makeRequest que funciona con o sin autenticación
+    makeRequest<any[]>('GET', '/events')
+      .then((events) => {
+        // El backend devuelve un array directamente, no un objeto { events: [] }
         setEvents(events.map(e => ({ ...e })));
       })
       .catch((err) => {
@@ -27,7 +29,7 @@ export default function Calendar() {
         setEvents([]);
       })
       .finally(() => setLoading(false));
-  }, [authenticatedRequest]);
+  }, [makeRequest]);
 
   if (loading) {
     return (
