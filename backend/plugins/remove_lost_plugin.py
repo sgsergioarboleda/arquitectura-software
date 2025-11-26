@@ -1,130 +1,14 @@
-from fastapi import APIRouter, HTTPException
-from plugins.plugin_interface import PluginInterface
-from services.dependencies import mongo_service
-from bson import ObjectId
-
-class Plugin(PluginInterface):
-    def __init__(self):
-        self.router = APIRouter()
-        self.collection_name = "lost_items"
-
-    def register_routes(self, app):
-        @self.router.delete("/lost/{item_id}")
-        async def remove_lost_item(item_id: str):
-            try:
-                # Validar el formato del ID
-                if not ObjectId.is_valid(item_id):
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="ID de objeto inválido"
-                    )
-
-                # Obtener la colección
-                collection = mongo_service.get_collection(self.collection_name)
-                
-                # Intentar eliminar el objeto
-                result = collection.delete_one({"_id": ObjectId(item_id)})
-                
-                if result.deleted_count == 0:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="Objeto perdido no encontrado"
-                    )
-                
-                return {
-                    "message": "Objeto perdido eliminado exitosamente",
-                    "item_id": item_id
-                }
-                
-            except HTTPException as he:
-                raise he
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error al eliminar objeto perdido: {str(e)}"
-                )
-
-        app.include_router(self.router, prefix="/api")
-
-    def initialize(self, config):
-        print("[INFO] Inicializando Remove Lost Item Plugin")
-        if not mongo_service.connect():
-            print("[ERROR] No se pudo conectar a MongoDB")
-
-
-
-import requests
-
-response = requests.delete(
-    "http://localhost:8000/api/lost/64f5a3b1234567890abcdef1"
-)
-print(response.json())
-
-from fastapi import APIRouter, HTTPException
-from plugins.plugin_interface import PluginInterface
-from services.dependencies import mongo_service
-from bson import ObjectId
-
-class Plugin(PluginInterface):
-    def __init__(self):
-        self.router = APIRouter()
-        self.collection_name = "lost_items"
-
-    def register_routes(self, app):
-        @self.router.delete("/lost/{item_id}")
-        async def remove_lost_item(item_id: str):
-            try:
-                # Validar el formato del ID
-                if not ObjectId.is_valid(item_id):
-                    raise HTTPException(
-                        status_code=400, 
-                        detail="ID de objeto inválido"
-                    )
-
-                # Obtener la colección
-                collection = mongo_service.get_collection(self.collection_name)
-                
-                # Intentar eliminar el objeto
-                result = collection.delete_one({"_id": ObjectId(item_id)})
-                
-                if result.deleted_count == 0:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="Objeto perdido no encontrado"
-                    )
-                
-                return {
-                    "message": "Objeto perdido eliminado exitosamente",
-                    "item_id": item_id
-                }
-                
-            except HTTPException as he:
-                raise he
-            except Exception as e:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error al eliminar objeto perdido: {str(e)}"
-                )
-
-        app.include_router(self.router, prefix="/api")
-
-    def initialize(self, config):
-        print("[INFO] Inicializando Remove Lost Item Plugin")
-        if not mongo_service.connect():
-            print("[ERROR] No se pudo conectar a MongoDB")
-
-import requests
-
-response = requests.delete(
-    "http://localhost:8000/api/lost/64f5a3b1234567890abcdef1"
-)
-print(response.json())
 from fastapi import APIRouter, HTTPException, Depends
 from plugins.plugin_interface import PluginInterface
 from services.dependencies import get_mongodb
 from Auth.auth_dependencies import require_admin
 from bson import ObjectId
-from datetime import datetime
+
+# Importar capas hexagonales
+from domain.lost_items.services.lost_item_service import LostItemService
+from infrastructure.mongo.lost_items.mongo_lost_item_repository import MongoLostItemRepository
+from infrastructure.mongo.lost_items.mongo_lost_item_removal_repository import MongoLostItemRemovalRepository
+
 
 class Plugin(PluginInterface):
     def __init__(self):
@@ -140,6 +24,7 @@ class Plugin(PluginInterface):
         ):
             """
             Marca un objeto perdido como removido del sistema
+            Usando arquitectura hexagonal (puertos y adaptadores)
             """
             try:
                 # Validar ID
@@ -149,60 +34,31 @@ class Plugin(PluginInterface):
                         detail="ID de objeto inválido"
                     )
 
-                # Verificar que el objeto existe
-                item = db.find_by_id("lost_items", item_id)
-                if not item:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="Objeto no encontrado"
-                    )
+                # Crear instancias de los repositorios (adaptadores)
+                lost_repo = MongoLostItemRepository(db)
+                removal_repo = MongoLostItemRemovalRepository(db)
 
-                # Verificar que el objeto no haya sido removido ya
-                if item.get("status") == "removed":
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Este objeto ya fue removido del sistema"
-                    )
-
-                # Crear registro de remoción
-                removal_doc = {
-                    "item_id": ObjectId(item_id),
-                    "removed_by": str(current_user["_id"]),
-                    "removed_at": datetime.now().isoformat(),
-                    "notes": notes,
-                    "previous_status": item.get("status", "available")
-                }
-
-                # Insertar registro de remoción
-                removals_collection = db.get_collection("lost_item_removals")
-                removal_result = removals_collection.insert_one(removal_doc)
-
-                # Actualizar estado del objeto perdido
-                items_collection = db.get_collection("lost_items")
-                update_result = items_collection.update_one(
-                    {"_id": ObjectId(item_id)},
-                    {
-                        "$set": {
-                            "status": "removed",
-                            "updated_at": datetime.now().isoformat(),
-                            "removal_id": str(removal_result.inserted_id)
-                        }
-                    }
+                # Crear instancia del servicio de dominio
+                service = LostItemService(
+                    lost_repo=lost_repo,
+                    removal_repo=removal_repo
                 )
 
-                if update_result.modified_count == 0:
-                    raise HTTPException(
-                        status_code=500,
-                        detail="No se pudo actualizar el estado del objeto"
-                    )
+                # Ejecutar la lógica de negocio a través del servicio
+                result = service.remove_item(
+                    item_id=item_id,
+                    removed_by=str(current_user["_id"]),
+                    notes=notes
+                )
 
-                return {
-                    "message": "Objeto removido exitosamente",
-                    "item_id": item_id,
-                    "removal_id": str(removal_result.inserted_id),
-                    "removed_at": removal_doc["removed_at"]
-                }
+                return result
 
+            except ValueError as ve:
+                # Errores de validación de dominio
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(ve)
+                )
             except HTTPException:
                 raise
             except Exception as e:
@@ -218,6 +74,7 @@ class Plugin(PluginInterface):
         ):
             """
             Lista todos los objetos que han sido removidos
+            Mantiene la lógica actual sin cambios
             """
             try:
                 # Buscar objetos con estado "removed"
@@ -274,5 +131,5 @@ class Plugin(PluginInterface):
         """
         Inicializa el plugin con la configuración proporcionada
         """
-        print("🗑️ Inicializando Remove Lost Plugin")
+        print("🗑️ Inicializando Remove Lost Plugin (Hexagonal Architecture)")
         print("📝 Configuración:", config)

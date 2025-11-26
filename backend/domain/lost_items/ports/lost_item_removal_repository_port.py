@@ -1,0 +1,6 @@
+from typing import Protocol, Optional
+from domain.lost_items.models.lost_item_removal import LostItemRemoval
+
+class LostItemRemovalRepositoryPort(Protocol):
+    def save_removal(self, removal: LostItemRemoval) -> LostItemRemoval: ...
+    def find_by_item_id(self, item_id: str) -> Optional[LostItemRemoval]: ...
