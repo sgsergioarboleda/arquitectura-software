@@ -1,29 +1,17 @@
-# gemini_scheduler_agent_with_rooms.py
 """
-Gemini scheduler agent (rooms-aware) with caching support
-
-Input:
- - Excel with columns: Clase, Profesor, Dia de la semana, grupo, disponibilidad del docente
- - TXT file with list of rooms (one room id/name per line)
-
-Behavior:
- - Uses Gemini 3 Pro to propose schedule assignments (day, slot, room) in JSON.
- - Uses Gemini Flash for explanations (cheaper model)
- - Caches Gemini responses to avoid repeated API calls during experimentation
- - Deterministically validates Gemini output
- - Writes output Excel with scheduled and unscheduled sessions
- - If unscheduled sessions exist, requests an explanation + recommendations from Gemini Flash
+Schedule Generation Service
+Integrates Gemini AI scheduler logic for automated timetable generation
 """
 
 import os
 import re
 import json
-import sys
 import hashlib
 import pandas as pd
 from datetime import datetime, time, timedelta
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 from pathlib import Path
+from io import BytesIO
 
 # Google GenAI (Gemini)
 from google import genai
@@ -34,14 +22,35 @@ GEMINI_MODEL_EXPLANATION = "gemini-2.0-flash-exp"  # Cheaper model for explanati
 SLOT_MINUTES = 60
 DAY_START = "08:00"
 DAY_END = "18:00"
-OUTPUT_SHEET = "Horario"
-UNSCHEDULED_SHEET = "No_Pudo_Ser_Asignado"
 
 GEMINI_KEY_ENV = "GEMINI_API_KEY"
 
 # Cache configuration
-CACHE_DIR = "cache/LLMresponses"
+CACHE_DIR = "backend/cache/LLMresponses"
 USE_CACHE = True  # Set to False to bypass cache
+
+# Rooms file path - try multiple possible locations
+def find_rooms_file():
+    """Find rooms.txt file in multiple possible locations"""
+    possible_paths = [
+        # Relative to this file (services directory)
+        os.path.join(os.path.dirname(__file__), "..", "experiments", "data", "rooms.txt"),
+        # Relative to backend directory
+        "backend/experiments/data/rooms.txt",
+        # Relative to current working directory
+        "experiments/data/rooms.txt",
+        # Absolute path from project root
+        os.path.join(os.getcwd(), "backend", "experiments", "data", "rooms.txt"),
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            return os.path.abspath(path)
+    
+    # If not found, return the most likely path
+    return os.path.join(os.path.dirname(__file__), "..", "experiments", "data", "rooms.txt")
+
+ROOMS_FILE = find_rooms_file()
 
 # ---------------- Helpers ----------------
 SPANISH_DAY_MAP = {
@@ -285,7 +294,7 @@ def ask_gemini_justification(client, scheduled: List[Dict[str,Any]], unscheduled
     
     return response_text
 
-
+# ---------------- Validation (rooms-aware) ----------------
 def validate_and_build_output(assignments: List[Dict[str,Any]], sessions_raw: List[Dict[str,Any]], rooms: List[str]) -> Tuple[List[Dict], List[Dict]]:
     """
     Validates assignments and builds scheduled/unscheduled lists.
@@ -533,78 +542,82 @@ def read_rooms_txt(path: str) -> List[str]:
         raise ValueError("Rooms file is empty")
     return rooms
 
-def write_output_excel(scheduled: List[Dict], unscheduled: List[Dict], out_path: str):
-    df_sched = pd.DataFrame([{
-        "dia de la semana (L-V)": s["dia"],
-        "clase": s["clase"],
-        "Horario": s["Horario"],
-        "Profesor": s["Profesor"],
-        "grupo": s.get("grupo",""),
-        "Salon": s.get("Salon","")
-    } for s in scheduled])
-    df_uns = pd.DataFrame([{
-        "original_index": u.get("idx"),
-        "clase": u.get("clase"),
-        "profesor": u.get("profesor"),
-        "dia": u.get("dia"),
-        "grupo": u.get("grupo"),
-        "razon": u.get("reason")
-    } for u in unscheduled])
-    with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
-        df_sched.to_excel(writer, sheet_name=OUTPUT_SHEET, index=False)
-        if not df_uns.empty:
-            df_uns.to_excel(writer, sheet_name=UNSCHEDULED_SHEET, index=False)
-
-# ---------------- Main flow ----------------
-def run(input_excel: str, rooms_txt: str, output_excel: str):
-    # Init Gemini client (only one needed now)
-    gemini_client = init_gemini_client()
-
-    print(f"Reading input excel: {input_excel}")
-    df = pd.read_excel(input_excel)
-    rooms = read_rooms_txt(rooms_txt)
-    print(f"Rooms loaded ({len(rooms)}): {rooms}")
-
-    problem_json, sessions_raw = build_problem_json(df, rooms)
-
+# ---------------- Main Service Function ----------------
+class ScheduleService:
+    """Service for generating schedules using Gemini AI"""
     
-    # Use Gemini Pro for scheduling
-    gemini_text = call_gemini_schedule_proposal(gemini_client, GEMINI_MODEL_SCHEDULER, problem_json)
+    def __init__(self):
+        self.gemini_client = None
+    
+    def _ensure_client(self):
+        """Initialize Gemini client if not already done"""
+        if self.gemini_client is None:
+            self.gemini_client = init_gemini_client()
+    
+    async def generate_schedule(self, excel_content: bytes) -> Dict[str, Any]:
+        """
+        Generate schedule from Excel file content
+        
+        Args:
+            excel_content: Bytes content of the Excel file
+            
+        Returns:
+            Dictionary with scheduled and unscheduled sessions, plus justification
+        """
+        self._ensure_client()
+        
+        # Read Excel from bytes
+        df = pd.read_excel(BytesIO(excel_content))
+        
+        # Load rooms from txt file
+        rooms = read_rooms_txt(ROOMS_FILE)
+        print(f"Rooms loaded ({len(rooms)}): {rooms}")
+        
+        # Build problem JSON
+        problem_json, sessions_raw = build_problem_json(df, rooms)
+        
+        # Use Gemini Pro for scheduling
+        gemini_text = call_gemini_schedule_proposal(
+            self.gemini_client, 
+            GEMINI_MODEL_SCHEDULER, 
+            problem_json
+        )
+        
+        try:
+            parsed = json.loads(gemini_text)
+        except Exception:
+            m = re.search(r'(\{[\s\S]*\})', gemini_text)
+            if m:
+                parsed = json.loads(m.group(1))
+            else:
+                print("Warning: Gemini output not parsable as JSON. Treating as empty assignments.")
+                parsed = {"assignments": []}
+        
+        assignments = parsed.get("assignments", [])
+        
+        # Validate and build output
+        scheduled, unscheduled = validate_and_build_output(assignments, sessions_raw, rooms)
+        
+        # Use Gemini Flash for explanation if there are unscheduled sessions
+        justification = None
+        if unscheduled:
+            justification = ask_gemini_justification(
+                self.gemini_client, 
+                scheduled, 
+                unscheduled, 
+                rooms
+            )
+        
+        print(f"Scheduled: {len(scheduled)}")
+        print(f"Unscheduled: {len(unscheduled)}")
+        
+        return {
+            "scheduled": scheduled,
+            "unscheduled": unscheduled,
+            "justification": justification,
+            "total_scheduled": len(scheduled),
+            "total_unscheduled": len(unscheduled)
+        }
 
-    try:
-        parsed = json.loads(gemini_text)
-    except Exception:
-        m = re.search(r'(\{[\s\S]*\})', gemini_text)
-        if m:
-            parsed = json.loads(m.group(1))
-        else:
-            print("Warning: Gemini output not parsable as JSON. Treating as empty assignments.")
-            parsed = {"assignments": []}
-
-    assignments = parsed.get("assignments", [])
-
-    scheduled, unscheduled = validate_and_build_output(assignments, sessions_raw, rooms)
-
-    # Use Gemini Flash for explanation if there are unscheduled sessions
-    justification = None
-    if unscheduled:
-        justification = ask_gemini_justification(gemini_client, scheduled, unscheduled, rooms)
-
-    write_output_excel(scheduled, unscheduled, output_excel)
-
-    print(f"Wrote output to {output_excel}")
-    print(f"Scheduled: {len(scheduled)}")
-    print(f"Unscheduled: {len(unscheduled)}")
-    if justification:
-        print("\n--- Justification & Recommendations (Gemini Flash) ---\n")
-        print(justification)
-
-# ---------------- CLI ----------------
-if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Usage: python gemini_scheduler_agent_with_rooms.py input.xlsx rooms.txt output.xlsx")
-        sys.exit(1)
-    input_x = sys.argv[1]
-    rooms_file = sys.argv[2]
-    output_x = sys.argv[3]
-    run(input_x, rooms_file, output_x)
+# Global service instance
+schedule_service = ScheduleService()

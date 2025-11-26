@@ -1,6 +1,7 @@
 // src/pages/ScheduleGeneratorPage.tsx
 import { useState } from "react";
 import type { GeneratedSlot } from "../types";
+import { generateSchedule, ScheduledSession } from "../api/schedule";
 
 export default function ScheduleGeneratorPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -9,6 +10,9 @@ export default function ScheduleGeneratorPage() {
   const [scenario1, setScenario1] = useState<GeneratedSlot[]>([]);
   const [scenario2, setScenario2] = useState<GeneratedSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [justification, setJustification] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ scheduled: number; unscheduled: number } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -20,37 +24,66 @@ export default function ScheduleGeneratorPage() {
       alert("Por favor selecciona un archivo Excel primero.");
       return;
     }
+    
     setLoading(true);
+    setError(null);
+    setJustification(null);
 
-    // TODO: aquí luego llamarán a la API real.
-    // Por ahora puedes simular datos de prueba:
-    setTimeout(() => {
-      const demo: GeneratedSlot[] = [
-        {
-          id: "1",
-          subject: "Programación II",
-          teacher: "Juan Pérez",
-          day: "Lunes",
-          start: "08:00",
-          end: "10:00",
-          room: "302",
-        },
-        {
-          id: "2",
-          subject: "Cálculo I",
-          teacher: "Ana Gómez",
-          day: "Martes",
-          start: "10:00",
-          end: "12:00",
-          room: "204",
-        },
-      ];
-      setScenario1(demo);
-      setScenario2(
-        demo.map((s) => ({ ...s, id: s.id + "_alt", day: "Miércoles" }))
-      );
+    try {
+      const result = await generateSchedule(file);
+      
+      // Convert scheduled sessions to GeneratedSlot format
+      const convertedSlots: GeneratedSlot[] = result.scheduled.map((session: ScheduledSession) => {
+        const [start, end] = session.Horario.split('-');
+        return {
+          id: `${session.idx}`,
+          subject: session.clase,
+          teacher: session.Profesor,
+          day: getDayName(session.dia),
+          start: start.trim(),
+          end: end.trim(),
+          room: session.Salon,
+        };
+      });
+      
+      setScenario1(convertedSlots);
+      // For now, we'll use the same result for both scenarios
+      // In future, you could call the API twice or implement different strategies
+      setScenario2(convertedSlots);
+      
+      setStats({
+        scheduled: result.total_scheduled,
+        unscheduled: result.total_unscheduled
+      });
+      
+      if (result.justification) {
+        setJustification(result.justification);
+      }
+      
+      if (result.total_unscheduled > 0) {
+        alert(`Horario generado con ${result.total_scheduled} sesiones programadas y ${result.total_unscheduled} sesiones no programadas. Revisa las recomendaciones al final de la página.`);
+      }
+      
+    } catch (err: any) {
+      console.error("Error generating schedule:", err);
+      const errorMessage = err.response?.data?.detail || err.message || "Error desconocido al generar el horario";
+      setError(errorMessage);
+      alert(`Error: ${errorMessage}`);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+  
+  // Helper function to convert day codes to full names
+  const getDayName = (dayCode: string): string => {
+    const dayMap: Record<string, string> = {
+      'L': 'Lunes',
+      'M': 'Martes',
+      'X': 'Miércoles',
+      'J': 'Jueves',
+      'V': 'Viernes'
+    };
+    return dayMap[dayCode] || dayCode;
   };
 
   const currentData = (scenario === 1 ? scenario1 : scenario2).filter((slot) =>
@@ -90,6 +123,18 @@ export default function ScheduleGeneratorPage() {
         >
           {loading ? "Generando horarios..." : "Subir y generar horarios"}
         </button>
+        
+        {error && (
+          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+        
+        {stats && (
+          <div className="p-3 rounded-md bg-blue-50 border border-blue-200 text-sm">
+            <strong>Resultado:</strong> {stats.scheduled} sesiones programadas, {stats.unscheduled} no programadas
+          </div>
+        )}
       </div>
 
       {/* Panel de selección y búsqueda */}
@@ -161,6 +206,14 @@ export default function ScheduleGeneratorPage() {
           </table>
         )}
       </div>
+      
+      {/* Justification section */}
+      {justification && (
+        <div className="border rounded-lg bg-yellow-50 shadow-sm p-4">
+          <h2 className="text-lg font-semibold mb-2">Recomendaciones y análisis</h2>
+          <div className="text-sm whitespace-pre-wrap">{justification}</div>
+        </div>
+      )}
     </div>
   );
 }

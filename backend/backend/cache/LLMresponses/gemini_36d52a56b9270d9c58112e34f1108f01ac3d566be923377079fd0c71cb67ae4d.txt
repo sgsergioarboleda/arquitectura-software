@@ -1,0 +1,76 @@
+```json
+{
+  "assignments": [
+    {
+      "idx": 0,
+      "day": "L",
+      "slot": "09:00-10:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 1,
+      "day": "M",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 2,
+      "day": "L",
+      "slot": "10:00-11:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 3,
+      "day": "L",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 4,
+      "day": "L",
+      "slot": "08:00-09:00",
+      "room": "A102",
+      "reason": null
+    },
+    {
+      "idx": 5,
+      "day": "J",
+      "slot": "10:00-11:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 6,
+      "day": "L",
+      "slot": "12:00-13:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 7,
+      "day": "X",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": null
+    },
+    {
+      "idx": 8,
+      "day": "L",
+      "slot": "08:00-09:00",
+      "room": "A103",
+      "reason": null
+    },
+    {
+      "idx": 9,
+      "day": "V",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": null
+    }
+  ]
+}
+```

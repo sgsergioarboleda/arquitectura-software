@@ -11,3 +11,6 @@ requests
 Pillow
 cryptography
 bcrypt==4.0.1
+pandas
+openpyxl
+google-genai

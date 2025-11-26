@@ -28,6 +28,7 @@ from routes.storage_routes import router as storage_router
 from routes.event_routes import router as event_router
 from routes.lost_routes import router as lost_router
 from routes.user_routes import router as user_router
+from routes.schedule_routes import router as schedule_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -107,6 +108,8 @@ app.include_router(event_router)
 app.include_router(lost_router)
 # Include user management routes (admin only)
 app.include_router(user_router)
+# Include schedule generation routes (admin only)
+app.include_router(schedule_router)
 
 # Los schemas de usuario están ahora en users/schemas/user_schemas.py
 

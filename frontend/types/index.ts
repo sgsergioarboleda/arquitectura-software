@@ -24,3 +24,13 @@ export type UniEvent = {
   location?: string;
   description?: string;
 };
+
+export type GeneratedSlot = {
+  id: string;
+  subject: string;
+  teacher: string;
+  day: string;
+  start: string;
+  end: string;
+  room: string;
+};
