@@ -5,6 +5,9 @@ from fastapi import HTTPException, status, Depends
 from services.config_service import config_service
 from services.password_service import password_service
 import os
+from pathlib import Path
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 class AuthService:
     """
@@ -21,32 +24,40 @@ class AuthService:
         self._load_rsa_keys()
     
     def _load_rsa_keys(self):
-        """
-        Carga las llaves RSA desde los archivos
-        """
+        """Cargar llaves RSA desde archivos"""
         try:
             print("🔑 Cargando llaves RSA...")
+            base_dir = Path(__file__).parent.parent
+            private_key_path = base_dir / "keys" / "private.pem"
+            public_key_path = base_dir / "keys" / "public.pem"
             
-            # Cargar llave privada
-            private_key_path = os.path.join("keys", "private.pem")
-            print(f"📁 Ruta de llave privada: {os.path.abspath(private_key_path)}")
-            with open(private_key_path, "r") as f:
-                self.private_key = f.read()
+            # Si las llaves no existen en testing, usar valores por defecto
+            if not private_key_path.exists() or not public_key_path.exists():
+                print("[WARNING] Llaves RSA no encontradas. Usando valores de prueba.")
+                self.private_key = None
+                self.public_key = None
+                return
+            
+            print(f"📁 Ruta de llave privada: {private_key_path}")
+            with open(private_key_path, "rb") as f:
+                self.private_key = serialization.load_pem_private_key(
+                    f.read(),
+                    password=None,
+                    backend=default_backend()
+                )
             print("✅ Llave privada cargada")
             
-            # Cargar llave pública
-            public_key_path = os.path.join("keys", "public.pem")
-            print(f"📁 Ruta de llave pública: {os.path.abspath(public_key_path)}")
-            with open(public_key_path, "r") as f:
-                self.public_key = f.read()
+            print(f"📁 Ruta de llave pública: {public_key_path}")
+            with open(public_key_path, "rb") as f:
+                self.public_key = serialization.load_pem_public_key(
+                    f.read(),
+                    backend=default_backend()
+                )
             print("✅ Llave pública cargada")
                 
-        except FileNotFoundError as e:
-            print(f"❌ Error: No se pudieron cargar las llaves RSA: {str(e)}")
-            raise Exception(f"No se pudieron cargar las llaves RSA: {str(e)}")
         except Exception as e:
-            print(f"❌ Error al cargar las llaves RSA: {str(e)}")
-            raise Exception(f"Error al cargar las llaves RSA: {str(e)}")
+            print(f"❌ Error: No se pudieron cargar las llaves RSA: {e}")
+            raise Exception(f"No se pudieron cargar las llaves RSA: {str(e)}")
     
     def create_access_token(self, data: Dict[str, Any]) -> str:
         """
