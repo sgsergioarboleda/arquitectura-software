@@ -1,0 +1,216 @@
+```json
+{
+  "assignments": [
+    {
+      "idx": 0,
+      "day": "L",
+      "slot": "12:00-13:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 1,
+      "day": "M",
+      "slot": "12:00-13:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 2,
+      "day": "L",
+      "slot": "10:00-11:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 3,
+      "day": "L",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 4,
+      "day": "L",
+      "slot": "08:00-09:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 5,
+      "day": "V",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 6,
+      "day": "X",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 7,
+      "day": "X",
+      "slot": "08:00-09:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 8,
+      "day": "L",
+      "slot": "10:00-11:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 9,
+      "day": "X",
+      "slot": "09:00-10:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 10,
+      "day": "V",
+      "slot": "10:00-11:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 11,
+      "day": "X",
+      "slot": "11:00-12:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 12,
+      "day": "M",
+      "slot": "08:00-09:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 13,
+      "day": "X",
+      "slot": "09:00-10:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 14,
+      "day": "X",
+      "slot": "12:00-13:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 15,
+      "day": "X",
+      "slot": "09:00-10:00",
+      "room": "A103",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 16,
+      "day": "L",
+      "slot": "12:00-13:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 17,
+      "day": "M",
+      "slot": "10:00-11:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 18,
+      "day": "V",
+      "slot": "12:00-13:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 19,
+      "day": "M",
+      "slot": "09:00-10:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 20,
+      "day": "L",
+      "slot": "11:00-12:00",
+      "room": "A103",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 21,
+      "day": "M",
+      "slot": "10:00-11:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 22,
+      "day": "J",
+      "slot": "09:00-10:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 23,
+      "day": "V",
+      "slot": "09:00-10:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 24,
+      "day": "J",
+      "slot": "10:00-11:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 25,
+      "day": "M",
+      "slot": "10:00-11:00",
+      "room": "A103",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 26,
+      "day": "L",
+      "slot": "12:00-13:00",
+      "room": "A103",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 27,
+      "day": "V",
+      "slot": "11:00-12:00",
+      "room": "A101",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 28,
+      "day": "J",
+      "slot": "09:00-10:00",
+      "room": "A102",
+      "reason": "Assigned"
+    },
+    {
+      "idx": 29,
+      "day": "L",
+      "slot": "11:00-12:00",
+      "room": "A101",
+      "reason": "Assigned"
+    }
+  ]
+}
+```

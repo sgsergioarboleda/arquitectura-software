@@ -8,7 +8,11 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
     <Link
       to={to}
       className={`px-3 py-2 rounded-lg text-sm transition
-        ${active ? "bg-gray-900 text-white" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}`}
+        ${
+          active
+            ? "bg-gray-900 text-white"
+            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+        }`}
     >
       {children}
     </Link>
@@ -39,20 +43,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="font-semibold tracking-tight">
-            Universidad Sergio Arboleda 
+            Universidad Sergio Arboleda
           </Link>
           <nav className="flex items-center gap-1">
             <NavLink to="/objetos-perdidos">Objetos perdidos</NavLink>
             <NavLink to="/calendario">Calendario</NavLink>
-            {isAuthenticated && user?.role === 'admin' && (
+            <NavLink to="/generar-horarios">Generar horarios</NavLink>
+            {isAuthenticated && user?.role === "admin" && (
               <NavLink to="/admin">Administración</NavLink>
             )}
             <div className="flex items-center gap-2 ml-4 pl-4 border-l">
               {isAuthenticated ? (
                 <>
-                  <span className="text-sm text-gray-600">
-                    {user?.email}
-                  </span>
+                  <span className="text-sm text-gray-600">{user?.email}</span>
                   <button
                     onClick={handleLogout}
                     className="px-3 py-2 rounded-lg text-sm text-red-600 hover:text-red-700 hover:bg-red-50 transition"

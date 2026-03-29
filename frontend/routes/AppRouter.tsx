@@ -4,6 +4,7 @@ import Login from "../pages/Login";
 import LostAndFound from "../pages/LostAndFound";
 import Calendar from "../pages/Calendar";
 import AdminDashboard from "../pages/AdminDashboard";
+import ScheduleGeneratorPage from "../pages/ScheduleGeneratorPage";
 import AdminRoute from "../components/AdminRoute";
 
 function HomePage() {
@@ -19,14 +20,15 @@ export default function AppRouter() {
         {/* Rutas públicas - accesibles sin autenticación */}
         <Route path="/objetos-perdidos" element={<LostAndFound />} />
         <Route path="/calendario" element={<Calendar />} />
+        <Route path="/generar-horarios" element={<ScheduleGeneratorPage />} />
         {/* Ruta protegida solo para administradores */}
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
             <AdminRoute>
               <AdminDashboard />
             </AdminRoute>
-          } 
+          }
         />
         <Route path="/" element={<HomePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
